@@ -1,4 +1,4 @@
-# OMD Model Performance Dashboard — Prototype v21
+# OMD Model Performance Dashboard — Prototype v22
 
 **Internal demonstration • Synthetic EVS-style statistics • Not operational verification**
 
@@ -34,7 +34,7 @@ If a newly deployed revision seems unchanged, perform a hard refresh or clear th
 
 ## Current demonstration scope
 
-| Setting | Included in v21 |
+| Setting | Included in v22 |
 | --- | --- |
 | Models | **GFS, GEFS, AIGFS, AIGEFS, HGEFS** |
 | Model Group | **Global** only (the name of this five-model group) |
@@ -43,7 +43,7 @@ If a newly deployed revision seems unchanged, perform a hard refresh or clear th
 | Variables | 500-hPa geopotential height; 850-hPa temperature; 2-m temperature; MSLP; 10-m wind speed; 24-h precipitation |
 | Archive | **90 daily valid dates, July 9–October 6, 2026**, in demo data |
 | Forecast leads | **Day 0–15**, every 24 hours (0–360 forecast hours) |
-| Period controls | **90, 30, 15, or 7 days**, or **Custom Range** within available dates |
+| Period controls | **90, 60, 30, 15, or 7 days**, or **Custom Range** within available dates |
 | Default comparison baseline | **GFS**, changeable to any of the five models |
 | Theme | Dark by default on first visit; most recently selected light/dark setting is remembered in that browser |
 
@@ -120,8 +120,8 @@ valid_date,model,region,metric,forecast_hour,value,sample_count,completeness
 
 Additional technical notes are in **`ARCHITECTURE.md`**; release history is in **`CHANGELOG.md`**.
 
-## Revision notes for v21
+## Revision notes for v22
 
-- Consolidated this README to reflect the **actual current implementation** instead of the old v16 instructions.
-- Moved chart toolbars to a **non-overlay row above the plotting SVG** on all three chart-bearing pages; chart interactions and PNG exports otherwise remain unchanged.
-- Preserved the **server-ready ZIP root layout**, without start scripts or an enclosing folder.
+- Added a **60 Days** preset to the Date Window selectors on **Home, Skill vs Forecast Lead, Scorecard, and Time Series**.
+- All preset windows continue to end on the latest date available in the demo archive (October 6, 2026); Custom Range remains available.
+- Preserved v21’s non-overlay chart toolbars, chart interactions, PNG exports, theme persistence, and server-ready ZIP root layout.

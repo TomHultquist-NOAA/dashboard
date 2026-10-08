@@ -5,7 +5,7 @@ export const CONFIG = {
   defaultBaseline: 'GFS',
   defaultPrimaryMetric: 'H500_ACC',
   defaultForecastLead: 120,
-  periods: [90, 30, 15, 7],
+  periods: [90, 60, 30, 15, 7],
   leads: Array.from({length:16},(_,i)=>i*24),
   scorecardLeads: [24, 72, 120, 168, 240, 360],
   regions: ['Global', 'Northern Hemisphere', 'Southern Hemisphere', 'Tropics'],

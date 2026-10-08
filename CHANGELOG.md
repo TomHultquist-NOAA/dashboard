@@ -1,5 +1,10 @@
 # Changelog
 
+## v22 (60-day preset)
+
+- Added **Last 60 Days** to all four page Date Window selectors: Home, Skill vs Forecast Lead, Scorecard, and Time Series.
+- No change to synthetic CSV content, date handling, metric computation, chart behaviors, or server-ready archive structure.
+
 ## v21 (README and chart-toolbar layout)
 
 - Replaced outdated v16 README with accurate documentation for v21: site deployment, four pages, actual data/model/metric scope, rank-history interpretation, scorecards, chart export, theme persistence, and future CSV integration.
