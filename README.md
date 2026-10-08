@@ -1,4 +1,4 @@
-# OMD Model Performance Dashboard — Prototype v23
+# OMD Model Performance Dashboard — Prototype v25
 
 **Internal demonstration • Synthetic EVS-style statistics • Not operational verification**
 
@@ -34,7 +34,7 @@ If a newly deployed revision seems unchanged, perform a hard refresh or clear th
 
 ## Current demonstration scope
 
-| Setting | Included in v22 |
+| Setting | Included in v24 |
 | --- | --- |
 | Models | **GFS, GEFS, AIGFS, AIGEFS, HGEFS** |
 | Model Group | **Global** only (the name of this five-model group) |
@@ -140,3 +140,9 @@ Additional technical notes are in **`ARCHITECTURE.md`**; release history is in *
 - Added a **60 Days** preset to the Date Window selectors on **Home, Skill vs Forecast Lead, Scorecard, and Time Series**.
 - All preset windows continue to end on the latest date available in the demo archive (October 6, 2026); Custom Range remains available.
 - Preserved v21’s non-overlay chart toolbars, chart interactions, PNG exports, theme persistence, and server-ready ZIP root layout.
+
+## In-app reference and contact
+
+The **Methodology** page provides user-facing explanations of metrics, verification datasets, aggregation, ranking, baseline-relative skill, date windows, and interpretation cautions. Development and CSV integration details are kept in this package documentation rather than on the public-facing Methodology page.
+
+The Home footer shows the dashboard release/update date and the latest available **demonstration verification date** obtained from the loaded regional CSV. It also provides a mailto link for questions or comments to Tom Hultquist (thomas.hultquist@noaa.gov), Office of Modeling and Development, Evaluation and Verification Unit.

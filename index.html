@@ -164,8 +164,8 @@
             <div>
               <div class="reference-eyebrow">REFERENCE / 01</div>
               <h2>Methodology</h2>
-              <p>What the dashboard measures, how scores become comparisons and rankings, and what must be verified before production use.</p>
-              <div class="reference-pills"><span>Prototype v23</span><span>90-day synthetic archive</span><span>EVS integration planned</span></div>
+              <p>What the dashboard measures and how to interpret verification scores, model rankings, and comparisons.</p>
+              <div class="reference-pills"><span>90-day demonstration period</span><span>Five guidance systems</span><span>Four verification regions</span></div>
             </div>
             <div class="reference-hero-symbol" aria-hidden="true">∑</div>
           </div>
@@ -179,20 +179,19 @@
               <a href="#" data-scroll-to="method-ranks">05 <span>Ranks &amp; scorecards</span></a>
               <a href="#" data-scroll-to="method-windows">06 <span>Dates &amp; forecast leads</span></a>
               <a href="#" data-scroll-to="method-signals">07 <span>Signals &amp; limitations</span></a>
-              <a href="#" data-scroll-to="method-next">08 <span>EVS transition</span></a>
             </nav>
             <div class="reference-content">
               <section class="reference-section card" id="method-scope">
                 <div class="section-kicker">01 / DATASET</div><h3>Scope &amp; evaluated models</h3>
-                <p>The initial dashboard is a <strong>browser-based demonstration</strong> for five global guidance systems: <strong>GFS, GEFS, AIGFS, AIGEFS, and HGEFS</strong>. Its only model group is <strong>Global</strong>. The available geographic domains are Global, Northern Hemisphere, Southern Hemisphere, and Tropics.</p>
-                <p>The supplied records cover <strong>90 daily valid dates (July 9–October 6, 2026)</strong> and <strong>daily forecast leads from Day 0 to Day 15</strong> (0–360 hours, every 24 hours). All numeric statistics, ranks, completeness values, and change signals are <strong>synthetic</strong>. They are intended to demonstrate behavior, not forecast quality.</p>
+                <p>This dashboard currently uses <strong>demonstration statistics</strong> for five global guidance systems: <strong>GFS, GEFS, AIGFS, AIGEFS, and HGEFS</strong>. The available model group is <strong>Global</strong>. The available geographic domains are Global, Northern Hemisphere, Southern Hemisphere, and Tropics.</p>
+                <p>The supplied records cover <strong>90 daily valid dates (July 9–October 6, 2026)</strong> and <strong>daily forecast leads from Day 0 to Day 15</strong> (0–360 hours, every 24 hours). All displayed statistics, ranks, and trends are <strong>synthetic</strong> and do not represent actual model performance.</p>
                 <div class="reference-notice"><strong>Demonstration data only</strong><span>These values have not been produced or certified by OMD EVS. Do not use model ranks, skill scores, or signals from this prototype for scientific or operational conclusions.</span></div>
               </section>
 
               <section class="reference-section card" id="method-sources">
                 <div class="section-kicker">02 / TRUTH DATA</div><h3>Verification datasets</h3>
-                <p>A verification statistic compares a forecast with a defined reference field or observations. The prototype assigns a <em>configured example</em> verification source by parameter, as shown below; the dashboard does not calculate statistics directly from meteorological fields.</p>
-                <div class="reference-table-scroll"><table class="reference-table"><thead><tr><th>Parameter</th><th>Mock verification source</th><th>Metrics</th></tr></thead><tbody>
+                <p>Each verification statistic compares a model forecast against an appropriate reference analysis or observing dataset. The example datasets associated with the displayed parameters are listed below.</p>
+                <div class="reference-table-scroll"><table class="reference-table"><thead><tr><th>Parameter</th><th>Verification reference (example)</th><th>Metrics</th></tr></thead><tbody>
                   <tr><td>500-hPa geopotential height</td><td>GDAS Analysis</td><td>ACC, RMSE, Bias</td></tr>
                   <tr><td>850-hPa temperature</td><td>GDAS Analysis</td><td>RMSE, Bias</td></tr>
                   <tr><td>2-m temperature</td><td>URMA</td><td>RMSE, Bias</td></tr>
@@ -200,30 +199,30 @@
                   <tr><td>10-m wind speed</td><td>URMA</td><td>RMSE, Bias</td></tr>
                   <tr><td>24-hour precipitation</td><td>MRMS QPE</td><td>ETS</td></tr>
                 </tbody></table></div>
-                <p class="reference-small">These are prototype labels from the configuration, <strong>not a guarantee of the eventual EVS target definitions</strong>. Final operational documentation must specify verifying field, accumulation/valid-time alignment, event threshold for ETS, ACC climatology, interpolation, grid, mask, weighting, and any model-specific exceptions.</p>
+                <p class="reference-small">Verification reference datasets can differ by parameter. The sources shown here are illustrative; the current dashboard uses demonstration statistics.</p>
               </section>
 
               <section class="reference-section card" id="method-metrics">
                 <div class="section-kicker">03 / MEASURES</div><h3>Verification metrics</h3>
                 <div class="metric-explainer-grid">
-                  <article class="metric-explainer"><div><span class="metric-acronym">ACC</span><span class="metric-direction">Higher is better</span></div><h4>Anomaly Correlation Coefficient</h4><p>Measures how well forecast anomalies align with verifying anomalies relative to a climatological reference. The current catalog uses ACC for 500-hPa height. The source CSV supplies the ACC score directly.</p></article>
+                  <article class="metric-explainer"><div><span class="metric-acronym">ACC</span><span class="metric-direction">Higher is better</span></div><h4>Anomaly Correlation Coefficient</h4><p>Measures how well forecast anomalies align with verifying anomalies relative to a climatological reference. Displayed for 500-hPa geopotential height in the current dashboard.</p></article>
                   <article class="metric-explainer"><div><span class="metric-acronym">RMSE</span><span class="metric-direction">Lower is better</span></div><h4>Root Mean Square Error</h4><p>Measures overall error magnitude in the variable's physical units (K, m, hPa or m/s). Larger errors receive more weight than small errors because differences are squared.</p></article>
                   <article class="metric-explainer"><div><span class="metric-acronym">Bias</span><span class="metric-direction">Closer to zero</span></div><h4>Mean signed error</h4><p>Indicates the direction and size of systematic error. Positive and negative values carry different physical meaning; the ranking compares absolute distance from zero, while Time Series retains the signed value.</p></article>
-                  <article class="metric-explainer"><div><span class="metric-acronym">ETS</span><span class="metric-direction">Higher is better</span></div><h4>Equitable Threat Score</h4><p>Measures categorical precipitation event skill while accounting for hits expected by chance. Used only for 24-hour precipitation in this initial prototype. The CSV carries the already-computed ETS statistic.</p></article>
+                  <article class="metric-explainer"><div><span class="metric-acronym">ETS</span><span class="metric-direction">Higher is better</span></div><h4>Equitable Threat Score</h4><p>Measures categorical precipitation event skill while accounting for hits expected by chance. Displayed for 24-hour precipitation in the current dashboard.</p></article>
                 </div>
-                <p class="reference-small">The dashboard does not reconstruct forecast–observation pairs, ACC anomalies, or ETS contingency tables from the CSV. Those computations must occur upstream in EVS/METplus. Thresholds and valid time/accumulation details must be documented with real EVS feeds.</p>
+                <p class="reference-small">The displayed values are already-computed verification statistics; the dashboard summarizes and compares those statistics rather than calculating them from raw forecasts and observations.</p>
               </section>
 
               <section class="reference-section card" id="method-aggregation">
                 <div class="section-kicker">04 / COMPUTATION</div><h3>Combining daily statistics</h3>
-                <p>Each regional CSV contains one precomputed statistic for each available <strong>valid date × model × metric × lead</strong>. The prototype applies these rules when it combines multiple records for a selected time window or all forecast leads:</p>
-                <div class="reference-table-scroll"><table class="reference-table"><thead><tr><th>Metric</th><th>Current prototype aggregation</th><th>Important qualification</th></tr></thead><tbody>
-                  <tr><td>RMSE</td><td><code>sqrt(mean(RMSE²))</code></td><td>Equal weight per available stored score</td></tr>
-                  <tr><td>ACC</td><td><code>tanh(mean(atanh(ACC)))</code></td><td>Fisher-z approximation for correlations</td></tr>
-                  <tr><td>Bias</td><td><code>mean(signed Bias)</code></td><td>Positive and negative biases can cancel</td></tr>
-                  <tr><td>ETS</td><td><code>mean(ETS)</code></td><td>Simple mean, not recomputed from pooled contingency counts</td></tr>
+                <p>For longer periods or the “All forecast leads” option, the dashboard combines available daily verification statistics according to the metric:</p>
+                <div class="reference-table-scroll"><table class="reference-table"><thead><tr><th>Metric</th><th>How scores are combined</th><th>Interpretation</th></tr></thead><tbody>
+                  <tr><td>RMSE</td><td><code>sqrt(mean(RMSE²))</code></td><td>Accounts for squared error magnitude</td></tr>
+                  <tr><td>ACC</td><td><code>tanh(mean(atanh(ACC)))</code></td><td>Combines correlation coefficients</td></tr>
+                  <tr><td>Bias</td><td><code>mean(signed Bias)</code></td><td>Positive and negative bias can offset</td></tr>
+                  <tr><td>ETS</td><td><code>mean(ETS)</code></td><td>Average of the displayed daily scores</td></tr>
                 </tbody></table></div>
-                <p>The current code <strong>does not weight pooled scores by <code>sample_count</code></strong> or validate matched samples across models. Though the CSV includes sample count and completeness fields, these are not used to reject or reweight records in the prototype’s ranking and skill calculations. This must be revisited before operational deployment.</p>
+                <p>Statistics are combined from the available daily scores. Differences in sample coverage or the number of available records can affect comparisons; interpret small differences with care.</p>
               </section>
 
               <section class="reference-section card" id="method-ranks">
@@ -235,28 +234,21 @@
                   <article><strong>Scorecard</strong><p>Home and full Scorecard both display percentage improvement relative to the chosen baseline for the relevant metric/forecast lead. Baseline cells are <strong>0.0%</strong>. Blue indicates positive skill, gray near zero, red negative skill; values are also printed, so color alone is not required.</p></article>
                   <article><strong>Time Series</strong><p>Shows actual metric values for each valid date at a chosen lead, or a metric-specific aggregation across all available leads. It is <strong>not</strong> baseline-relative. Y-axis units follow the selected metric.</p></article>
                 </div>
-                <div class="reference-formula"><div class="formula-title">Baseline-relative skill (%)</div><code>Higher-is-better: 100 × (model − baseline) / |baseline|</code><code>Lower-is-better: 100 × (baseline − model) / |baseline|</code><code>Bias: 100 × (|baseline bias| − |model bias|) / max(|baseline bias|, floor)</code><p>For near-zero denominators, the code uses protective floors. Bias uses a metric-specific denominator floor; relative Bias percentages should be interpreted cautiously near zero. The colored heatmap applies an additional nonlinear saturation for presentation only, not to the numeric skill calculation.</p></div>
+                <div class="reference-formula"><div class="formula-title">Baseline-relative skill (%)</div><code>Higher-is-better: 100 × (model − baseline) / |baseline|</code><code>Lower-is-better: 100 × (baseline − model) / |baseline|</code><code>Bias: 100 × (|baseline bias| − |model bias|) / max(|baseline bias|, floor)</code><p>When the baseline error is close to zero, percentages can become large and should be interpreted cautiously, especially for Bias. Heatmap color intensity is a visual guide; the printed percentage is the comparison value.</p></div>
               </section>
 
               <section class="reference-section card" id="method-windows">
                 <div class="section-kicker">06 / SAMPLING</div><h3>Dates and forecast leads</h3>
-                <p>The window presets are <strong>7, 15, 30, 60, and 90 days</strong>. Each preset ends at the newest available verification date in the loaded CSV, not necessarily the current calendar date. A Custom Range may select start and end dates within the 90-day archive. Dates are treated as UTC calendar dates.</p>
-                <p>Skill vs Forecast Lead uses <strong>Day 0 through Day 15</strong> at whole-day intervals, with genuine points present in the synthetic data. The detailed Scorecard uses a compact subset: <strong>Days 1, 3, 5, 7, 10, and 15</strong>. Time Series can show a single lead or combine all available leads. Dates and leads are filtered before metric aggregation.</p>
+                <p>The window presets are <strong>7, 15, 30, 60, and 90 days</strong>. Each preset ends on the latest available verification date. A Custom Range allows a start and end date within the available 90-day period.</p>
+                <p>Skill vs Forecast Lead displays <strong>Day 0 through Day 15</strong> at whole-day intervals. The detailed Scorecard uses a compact subset: <strong>Days 1, 3, 5, 7, 10, and 15</strong>. Time Series can show a single lead or combine all available leads. Selected dates and forecast leads determine which statistics contribute to each result.</p>
               </section>
 
               <section class="reference-section card" id="method-signals">
                 <div class="section-kicker">07 / CAUTIONS</div><h3>Notable Signals and limitations</h3>
-                <p>Home's Notable Signals compares each model's most recent <strong>15-day period</strong> with its <strong>preceding 15-day period</strong>, across the prototype's configured headline metrics. Arrows are based on the direction of improvement; green means improved and red means degraded. Signals are <strong>changes in summary performance</strong>, not statistical significance tests or operational alerts.</p>
-                <ul><li>No confidence intervals, hypothesis tests, or significance thresholds are presently applied.</li><li>Spatial masks, grid resolution, event thresholds, and common verifying samples are not validated in the browser.</li><li>Model availability may differ by metric, date, or lead in real EVS output; missing combinations should remain missing rather than be assigned a score.</li><li>Comparing statistics pooled across leads can obscure systematic lead-dependent behavior.</li><li>Prototype regions describe pre-generated data partitions; actual geographic masks/weights belong in upstream verification processing.</li></ul>
+                <p>Home's Notable Signals compares each model's most recent <strong>15-day period</strong> with its <strong>preceding 15-day period</strong>, across selected headline metrics. Arrows are based on the direction of improvement; green means improved and red means degraded. Signals indicate <strong>changes in recent summary performance</strong>, not statistically confirmed trends or operational alerts.</p>
+                <ul><li>Small differences in scores do not necessarily imply a statistically meaningful difference in forecast quality.</li><li>Performance depends on the metric, geographic region, forecast lead, verification period, and reference dataset.</li><li>Not all models may have comparable data for every metric or date.</li><li>Combining multiple forecast leads can obscure meaningful lead-specific differences.</li></ul>
               </section>
-
-              <section class="reference-section card" id="method-next">
-                <div class="section-kicker">08 / IMPLEMENTATION</div><h3>Transitioning to EVS data</h3>
-                <p>EVS is intended to remain the source of computed verification statistics. A server-side normalization process would transform EVS-native daily CSVs into a stable dashboard schema, preserving the forecast model/version, valid time, lead, variable, metric, verification target, region, threshold where relevant, sample count, and data quality metadata.</p>
-                <p>The prototype currently reads <code>data/regions/*.csv</code> through a browser-side adapter. The exact CSV contract is documented in <strong>DATA_FORMAT.md</strong> and the implementation approach in <strong>ARCHITECTURE.md</strong>, both included in this package. The normalization tool is a starting template, not a finished EVS adapter.</p>
-                <div class="reference-links"><a href="https://owb.brightband.com/methodology" target="_blank" rel="noopener noreferrer">Operational WeatherBench methodology ↗</a><span>Design inspiration only; this dashboard does not use WeatherBench-X or Brightband scores.</span></div>
-              </section>
-            </div>
+</div>
           </div>
         </section>
 
@@ -266,12 +258,14 @@
               <div class="reference-eyebrow">REFERENCE / 02</div>
               <h2>Changelog</h2>
               <p>What has changed in the OMD Model Performance Dashboard prototype, newest first.</p>
-              <div class="reference-pills"><span>Current build · v23</span><span>Development prototype</span></div>
+              <div class="reference-pills"><span>Current build · v25</span><span>Development prototype</span></div>
             </div>
             <div class="reference-hero-symbol" aria-hidden="true">↻</div>
           </div>
           <div class="release-list">
-            <article class="release-card card current-release"><div class="release-side"><strong>v23</strong><span class="release-status">Current</span><small>October 8, 2026</small></div><div><h3>In-app documentation</h3><p>Introduced dedicated <strong>Methodology</strong> and <strong>Changelog</strong> pages under a Reference group in the left navigation. Documented prototype score formulas, rank logic, verification sources, known limitations, and EVS integration considerations. No changes to verification data or chart computations.</p></div></article>
+            <article class="release-card card current-release"><div class="release-side"><strong>v25</strong><span class="release-status">Current</span><small>October 8, 2026</small></div><div><h3>Theme toggle icon correction</h3><p>Made the sun icon accompany the Light option and the moon icon accompany the Dark option. The button’s accessible label now updates with the selected action.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>v24</strong><small>October 8, 2026</small></div><div><h3>Clearer methodology and Home footer</h3><p>Streamlined Methodology to focus on reading and interpreting dashboard results. Added the dashboard update date, most recent demonstration verification date, and a contact link beneath the Home footer.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>v23</strong><small>October 8, 2026</small></div><div><h3>In-app documentation</h3><p>Introduced dedicated <strong>Methodology</strong> and <strong>Changelog</strong> pages under a Reference group in the left navigation. Documented metric definitions, model rankings, scorecard comparisons, and interpretation guidance. No changes to verification data or chart computations.</p></div></article>
             <article class="release-card card"><div class="release-side"><strong>v22</strong><small>Period filters</small></div><div><h3>60-day selection</h3><p>Added the Last 60 Days preset to the date selectors on Home, Skill vs Lead, Scorecard, and Time Series.</p></div></article>
             <article class="release-card card"><div class="release-side"><strong>v21</strong><small>Usability</small></div><div><h3>Graph controls &amp; documentation</h3><p>Moved zoom, reset, and PNG controls into a separate strip above each interactive graph, preventing overlap with data traces. Refreshed the deployment README.</p></div></article>
             <article class="release-card card"><div class="release-side"><strong>v20</strong><small>Home</small></div><div><h3>Interactive Home rank history</h3><p>Brought box zoom, mouse-wheel zoom, Shift+drag panning, reset, and titled PNG export to the Home ranking graph.</p></div></article>
@@ -291,7 +285,13 @@
         </section>
       </main>
 
-      <footer class="app-footer">OMD Model Performance Dashboard prototype · Synthetic demonstration statistics · No operational conclusions should be drawn from displayed values.</footer>
+      <footer class="app-footer">
+        <div>OMD Model Performance Dashboard prototype · Synthetic demonstration statistics · No operational conclusions should be drawn from displayed values.</div>
+        <div class="home-footer-extra" aria-label="Dashboard update and contact information">
+          <div>Dashboard last updated: <time datetime="2026-10-08">October 8, 2026</time> (v25) · Latest demonstration verification date: <time id="footer-verification-date">Loading…</time></div>
+          <div>Questions and comments can be directed to <a href="mailto:thomas.hultquist@noaa.gov">Tom Hultquist</a>, Office of Modeling and Development, Evaluation and Verification Unit.</div>
+        </div>
+      </footer>
     </div>
   </div>
   <script type="module" src="js/app.js"></script>

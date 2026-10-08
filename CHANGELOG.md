@@ -1,5 +1,17 @@
 # Changelog — OMD Model Performance Dashboard
 
+## v25 (Theme toggle icon correction)
+
+- Light option displays the sun icon; Dark option displays the moon icon, matching the action named by the button.
+- The toggle button’s accessible label now updates when the theme changes. Theme persistence and all dashboard calculations remain unchanged.
+
+## v24 (User-facing Methodology and contact/footer information)
+
+- Removed the internal “Transitioning to EVS data” section and other implementation-only explanations from the in-app Methodology page. Kept user-facing guidance about metrics, verification sources, rankings, scorecards, date windows, and interpretation limitations.
+- Added Home-only footer metadata: dashboard last-updated date/version and most recent available synthetic verification date, populated from the loaded data.
+- Added a linked contact: Tom Hultquist, Office of Modeling and Development, Evaluation and Verification Unit (`mailto:thomas.hultquist@noaa.gov`).
+- No changes to data values, filters, score calculations, or chart interactions.
+
 ## v23 (Methodology and Changelog pages)
 
 - Added **Methodology** and **Changelog** as distinct reference pages available from the left sidebar/mobile drawer.

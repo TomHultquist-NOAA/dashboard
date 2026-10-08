@@ -74,6 +74,7 @@ function handleCustomDates(prefix,s,callback){
 function updateDataStatus(){
   if(!data.latestDate)return;
   $('data-status').textContent=`Data through ${dateFull(data.latestDate.getTime())} · ${data.loadedRegions.size} region${data.loadedRegions.size===1?'':'s'} loaded`;
+  const footerDate=$('footer-verification-date');if(footerDate){footerDate.textContent=dateFull(data.latestDate.getTime());footerDate.dateTime=iso(data.latestDate)}
 }
 function ensureRegionReady(region,callback){
   if(data.isRegionLoaded(region))return true;
@@ -83,7 +84,7 @@ function ensureRegionReady(region,callback){
 }
 
 function initTheme(){
-  const apply=()=>{$('theme-toggle-label').textContent=currentTheme()==='dark'?'Light':'Dark';$('theme-toggle').title=`Switch to ${currentTheme()==='dark'?'light':'dark'} mode`};
+  const apply=()=>{const target=currentTheme()==='dark'?'light':'dark';$('theme-toggle-label').textContent=target==='light'?'Light':'Dark';$('theme-toggle').title=`Switch to ${target} mode`;$('theme-toggle').setAttribute('aria-label',`Switch to ${target} mode`)};
   apply();$('theme-toggle').onclick=()=>{document.documentElement.dataset.theme=currentTheme()==='dark'?'light':'dark';localStorage.setItem('omd-dashboard-theme',currentTheme());apply();renderCurrent()};
 }
 function initNavigation(){
