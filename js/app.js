@@ -91,13 +91,15 @@ function initNavigation(){
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>setRoute(b.dataset.go));
   $('menu-toggle').onclick=()=>{$('sidebar').classList.add('open');$('sidebar-backdrop').classList.add('visible')};
   $('sidebar-backdrop').onclick=()=>{$('sidebar').classList.remove('open');$('sidebar-backdrop').classList.remove('visible')};
-  window.addEventListener('hashchange',()=>{const r=location.hash.replace('#/','');if(['home','skill','scorecard','timeseries'].includes(r))setRoute(r,true)});
+  document.querySelectorAll('[data-scroll-to]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();document.getElementById(link.dataset.scrollTo)?.scrollIntoView({behavior:'smooth',block:'start'})}));
+  window.addEventListener('hashchange',()=>{const r=location.hash.replace('#/','');if(['home','skill','scorecard','timeseries','methodology','changelog'].includes(r))setRoute(r,true)});
 }
 function setRoute(route,fromHash=false){
+  const changed=state.route!==route;
   state.route=route;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.dataset.page===route));document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.route===route));
-  const titles={home:['OMD Model Performance Dashboard','Rapid model-performance situational awareness using EVS verification statistics'],skill:['Skill vs Forecast Lead','Compare model skill across forecast lead against a selectable baseline'],scorecard:['Verification Scorecard','Compact baseline-relative verification panels across models and forecast leads'],timeseries:['Performance Time Series','Examine daily verification behavior over the previous 90 days']};
+  const titles={home:['OMD Model Performance Dashboard','Rapid model-performance situational awareness using EVS verification statistics'],skill:['Skill vs Forecast Lead','Compare model skill across forecast lead against a selectable baseline'],scorecard:['Verification Scorecard','Compact baseline-relative verification panels across models and forecast leads'],timeseries:['Performance Time Series','Examine daily verification behavior over the previous 90 days'],methodology:['Methodology','Metric definitions, score aggregation, rankings, and data caveats'],changelog:['Changelog','Dashboard feature and implementation history']};
   $('page-title').textContent=titles[route][0];$('page-subtitle').textContent=titles[route][1];document.body.classList.toggle('home-route',route==='home');
-  $('sidebar').classList.remove('open');$('sidebar-backdrop').classList.remove('visible');if(!fromHash)history.replaceState(null,'',`#/${route}`);renderCurrent();
+  $('sidebar').classList.remove('open');$('sidebar-backdrop').classList.remove('visible');if(!fromHash)history.replaceState(null,'',`#/${route}`);if(changed)window.scrollTo(0,0);renderCurrent();
 }
 
 
@@ -254,11 +256,11 @@ function renderTimeSeries(){
   $('ts-verification-note').innerHTML=`<strong>Verification:</strong> ${v.obsSource} · ${v.level}. ${metricDirectionText(m)} ${lead==null?'Each date aggregates all available forecast leads.':'Each point uses the selected forecast lead.'}`;
 }
 
-function renderCurrent(){if(!data.rows.length)return;if(state.route==='home')renderHome();else if(state.route==='skill')renderSkill();else if(state.route==='scorecard')renderScorecardPage();else renderTimeSeries()}
+function renderCurrent(){if(!data.rows.length)return;if(state.route==='home')renderHome();else if(state.route==='skill')renderSkill();else if(state.route==='scorecard')renderScorecardPage();else if(state.route==='timeseries')renderTimeSeries()}
 
 async function start(){
   initTheme();initNavigation();initHomeControls();initDetailControls();
-  try{await data.load(CONFIG.defaultRegion);syncDateLimits();updateDataStatus();const initial=location.hash.replace('#/','');setRoute(['home','skill','scorecard','timeseries'].includes(initial)?initial:'home',!initial)}
+  try{await data.load(CONFIG.defaultRegion);syncDateLimits();updateDataStatus();const initial=location.hash.replace('#/','');setRoute(['home','skill','scorecard','timeseries','methodology','changelog'].includes(initial)?initial:'home',!initial)}
   catch(err){console.error(err);document.querySelector('.status-dot').className='status-dot error';$('data-status').textContent='Data load failed';document.querySelector('.main-content').innerHTML=`<section class="card"><div class="empty">Unable to load the demonstration CSV. Serve this directory through HTTP rather than opening index.html directly.</div></section>`}
 }
 start();

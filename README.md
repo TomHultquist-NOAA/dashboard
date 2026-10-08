@@ -1,4 +1,4 @@
-# OMD Model Performance Dashboard — Prototype v22
+# OMD Model Performance Dashboard — Prototype v23
 
 **Internal demonstration • Synthetic EVS-style statistics • Not operational verification**
 
@@ -79,6 +79,15 @@ The synthetic CSVs are organized **one file per region** in `data/regions/`. Onl
 - Forecast Lead may be a single daily lead or **All** (prototype lead aggregation). The selected calendar range filters the visible dates.
 - Model traces can be selected independently, including none or all five.
 
+### Methodology and Changelog (new in v23)
+
+Two **Reference** pages appear beneath the four analytical views in the desktop sidebar and mobile drawer:
+
+- **Methodology** documents the exact scope of this prototype: source labels, available metrics, per-metric aggregation, ranking and baseline-relative skill formulas, dates/leads, known limitations, and considerations for ingesting real EVS CSVs. It explicitly identifies synthetic data and does not claim to reproduce the full operational EVS methodology.
+- **Changelog** gives a scannable, chronological-on-screen (newest-first) release history from the initial dashboard navigation through v23. Detailed developer notes remain in `CHANGELOG.md`.
+
+Both are static pages within the current single-page app; they do not require additional CSV files or external libraries.
+
 ## Chart interaction and image export
 
 Interactive graphs appear on **Home, Skill vs Forecast Lead, and Time Series**. The graph control toolbar is now in a **separate compact strip immediately above the plot**, so it **does not overlay or obscure traces** on either desktop or mobile.
@@ -119,6 +128,12 @@ valid_date,model,region,metric,forecast_hour,value,sample_count,completeness
 **Aggregation caution:** RMSE is pooled as RMS, ACC via Fisher-z, and Bias/ETS via arithmetic mean in this demonstration. Confirm these choices, sample weighting, verification masks/sources, missing-data behavior, and statistical comparability against the actual EVS/METplus output definitions before using any derived quantities operationally. Special care is required for Bias near zero and for pooled scores over different lead times.
 
 Additional technical notes are in **`ARCHITECTURE.md`**; release history is in **`CHANGELOG.md`**.
+
+## Revision notes for v23
+
+- Added in-app **Methodology** and **Changelog** navigation/pages, with touch-friendly responsive formatting.
+- Methodology documents the current formulas and their provisional status; Changelog reflects major dashboard releases.
+- No changes to calculation code or synthetic verification data.
 
 ## Revision notes for v22
 
