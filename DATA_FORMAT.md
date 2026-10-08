@@ -33,7 +33,7 @@ Configured mock truth sources are URMA, GDAS Analysis, and MRMS QPE depending on
 
 ## Date handling
 
-The dashboard expects daily rows and discovers the available archive bounds from the CSV. The custom date range inputs are constrained to those bounds. For the v10 demonstration the range is 2026-07-09 through 2026-10-06, i.e. 90 days ending the day before the prototype's October 7, 2026 reference date.
+The dashboard expects daily rows and discovers the available archive bounds from the CSV. The custom date range inputs are constrained to those bounds. For the v21 demonstration the range is 2026-07-09 through 2026-10-06, i.e. 90 days ending the day before the prototype's October 7, 2026 reference date.
 
 ## Forecast-lead cadence
 

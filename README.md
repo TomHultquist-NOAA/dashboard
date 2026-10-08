@@ -1,108 +1,127 @@
-# OMD Model Performance Dashboard — Prototype v16
+# OMD Model Performance Dashboard — Prototype v21
 
-This package is a static, production-oriented prototype for an internal OMD model-performance dashboard backed by EVS-style CSV statistics. All included statistics are synthetic and are for interface demonstration only.
+**Internal demonstration • Synthetic EVS-style statistics • Not operational verification**
 
-#
-### Home rank-history chart controls
+This is a browser-based prototype for quickly exploring and comparing NWP model verification, inspired by Operational WeatherBench's navigation and rank-history presentation. It is designed for static hosting now, with modular CSV ingestion to support a later transition to real OMD Evaluation and Verification System (EVS) data. **Every included numerical result is synthetic.** No displayed score, model rank, or signal should be interpreted as an actual forecast-performance finding.
 
-The Home page rank-history chart supports the same interactions as the detailed charts: drag a box to zoom, use the mouse wheel to zoom horizontally, Shift+drag to pan, reset the view, and save a PNG with a dynamic title/context line.
+## Deploy on a web server
 
-## Initial regions
-The prototype currently includes only **Global**, **Northern Hemisphere**, **Southern Hemisphere**, and **Tropics**. Region files are loaded on demand.
+Unzip the package **directly into the desired web directory**. The ZIP has **no enclosing folder and no `start_server` scripts**. The root of the deployed directory should look like:
 
-## Initial metric scope
+```text
+index.html
+css/styles.css
+js/app.js
+js/charts.js
+js/config.js
+js/data-service.js
+js/csv.js
+data/regions/Global.csv
+              Northern Hemisphere.csv
+              Southern Hemisphere.csv
+              Tropics.csv
+README.md
+DATA_FORMAT.md
+ARCHITECTURE.md
+CHANGELOG.md
+tools/generate_demo_data.py
+tools/normalize_evs_csv.py
+```
 
-The prototype now reflects the intended initial operational scope only:
+Visit `https://<your-server>/<deployed-path>/` (or the corresponding HTTP URL). No server-side interpreter, database, build system, or external JavaScript libraries are needed for the demo. **Serve through HTTP(S)**: opening `index.html` with `file://` generally blocks CSV loading because the application calls `fetch()`.
 
-- ACC
-- RMSE
-- Bias
-- ETS for 24-hour precipitation
+If a newly deployed revision seems unchanged, perform a hard refresh or clear the site's cache; normal HTTP caching can cause older CSS and JavaScript to persist.
 
-Models included: **GFS, GEFS, AIGFS, AIGEFS, HGEFS**.
+## Current demonstration scope
 
-The synthetic files contain **90 daily verification dates (2026-07-09 through 2026-10-06)**. The date controls provide 90-, 30-, 15-, and 7-day windows plus a custom range constrained to the available 90-day archive.
+| Setting | Included in v21 |
+| --- | --- |
+| Models | **GFS, GEFS, AIGFS, AIGEFS, HGEFS** |
+| Model Group | **Global** only (the name of this five-model group) |
+| Regions | **Global, Northern Hemisphere, Southern Hemisphere, Tropics** |
+| Verification metrics | **ACC, RMSE, Bias, and 24-h precipitation ETS** |
+| Variables | 500-hPa geopotential height; 850-hPa temperature; 2-m temperature; MSLP; 10-m wind speed; 24-h precipitation |
+| Archive | **90 daily valid dates, July 9–October 6, 2026**, in demo data |
+| Forecast leads | **Day 0–15**, every 24 hours (0–360 forecast hours) |
+| Period controls | **90, 30, 15, or 7 days**, or **Custom Range** within available dates |
+| Default comparison baseline | **GFS**, changeable to any of the five models |
+| Theme | Dark by default on first visit; most recently selected light/dark setting is remembered in that browser |
 
-## Pages
+The synthetic CSVs are organized **one file per region** in `data/regions/`. Only the selected region is fetched initially; loaded regions are reused within the current page session. Verification targets vary by parameter: mock configurations currently reference **GDAS Analysis, URMA, and MRMS QPE** as appropriate. These are configurable examples, not claims about the final EVS ingest feed.
 
-- **Home** — high-level model ranking and daily performance chart for the selected metric, followed by the compact verification scorecard, notable signals, and category snapshot. Ranking and chart traces cross-highlight on hover.
-- **Skill vs Lead** — baseline-relative skill by forecast lead. GFS is the default baseline, but any displayed model may be chosen.
-- **Scorecard** — compact side-by-side panels showing percent improvement/degradation relative to a user-selected baseline model. GFS is the default baseline, but any of the five models may be selected.
-- **Time Series** — daily absolute verification statistics for a selected forecast lead or all leads.
+## Pages and interpreting their values
 
-## Scorecard colors
+### Home — at-a-glance performance
 
-The scorecards use an opaque, colorblind-aware diverging scale:
+- **Overall model ranking (left)** sorts the five systems using the selected metric's *aggregate* verification score for the selected dates, region, and forecast lead. Lower RMSE is better, higher ACC/ETS is better, and Bias is assessed by distance from zero.
+- **Model Rank History (right)** plots each model's **rank at every individual valid date**: Rank 1 is best at the top, Rank 5 worst at the bottom. This is *not* a chart of raw RMSE/ACC/Bias/ETS values. Hovering a model name emphasizes its trace; hovering near a trace emphasizes its model in the ranking list.
+- The compact **Verification Scorecard** appears below rank history. Cells are **percentage improvement/degradation relative to the selected baseline**, with strong **blue for better**, **gray for near baseline**, and **red for worse**. The baseline model's value is 0.0% by definition.
+- **Notable Signals** and **Category Snapshot** provide quick prototype summaries beneath the scorecard.
+- Home filters sit **at the top of the page** and include period/custom date range, region, baseline, metric, and forecast lead. On narrow screens they reflow responsively.
 
-**red (worse than baseline) → intermediate reds → gray (baseline/near neutral) → intermediate blues → blue (better than baseline)**
+### Skill vs Forecast Lead
 
-Every cell displays the percent change relative to the selected baseline, so color is never the only information channel. The baseline column is 0.0%.
+- Shows percent skill relative to the **user-selected baseline** (default: GFS), for the selected metric, region and date window.
+- X-axis is **Forecast Lead Time (Days)**, with **actual daily samples at Day 0, Day 1, …, Day 15**; Y-axis describes **Skill vs [baseline] (%)**.
+- Users may display any combination of the five model traces, **including zero or all five**.
 
-## Chart interaction
+### Scorecard
 
-The Home performance chart links directly to its ranked model list: hover a ranked model to emphasize that trace, or hover near a trace to emphasize its ranked model.
+- Detailed, compact side-by-side cards by variable and metric, using a selected region, baseline, and date window.
+- Cells show **percent improvement/degradation against the selected baseline**, not the underlying absolute verification statistic. Colors and numeric signs consistently indicate better/near-baseline/worse performance.
+- Columns use the compact lead subset **Days 1, 3, 5, 7, 10, and 15**.
+- There is no Deterministic/Probabilistic mode selector in this initial version.
 
-Detailed Skill vs Lead and Time Series charts support:
+### Time Series
 
-- hover readouts
-- zoom in / zoom out buttons
-- mouse-wheel zoom on desktop
-- drag-to-select box zoom on desktop
-- Shift + drag panning on desktop
-- clean integer Day 0–15 axis on Skill vs Lead, labeled **Forecast Lead Time (Days)**
-- reset chart view
-- Save PNG using a direct canvas export (no SVG rasterization dependency)
-- any number of selected models, including zero or all five
+- Shows **actual daily metric values relative to the configured observation/analysis verification source**, **not percent skill against GFS**.
+- X-axis is **Date**, Y-axis is the selected metric and units (e.g. RMSE (K), Bias (hPa), ACC, ETS).
+- Forecast Lead may be a single daily lead or **All** (prototype lead aggregation). The selected calendar range filters the visible dates.
+- Model traces can be selected independently, including none or all five.
 
-## Running the prototype
+## Chart interaction and image export
 
-The browser loads CSV files with `fetch()`, so serve the directory through HTTP rather than opening `index.html` directly.
+Interactive graphs appear on **Home, Skill vs Forecast Lead, and Time Series**. The graph control toolbar is now in a **separate compact strip immediately above the plot**, so it **does not overlay or obscure traces** on either desktop or mobile.
 
-### Windows
+- **Hover**: crosshair, per-model values and visual highlighting; on Home, ranking names and lines highlight one another.
+- **Click-drag** within the graph: draw a zoom-selection rectangle and release to zoom; horizontal bounds snap to real dates or forecast leads.
+- **Mouse wheel**: horizontal zoom around the pointer on desktop.
+- **Shift + drag**: pan the viewed window.
+- **Zoom In / Zoom Out** buttons: additional accessible zoom controls, useful on touch devices.
+- **Reset View**: return the graph to its complete X/Y extent.
+- **Download PNG**: exports the currently viewed chart via a canvas, including a descriptive title, region/date/lead or baseline context, axis labels, and the graph; the toolbar itself is **not** part of the exported image.
 
-Run `start_server.bat`, then open `http://localhost:8000/`.
+Traces are clipped to the plotting area when zoomed. Date ticks come from genuine valid dates, rather than fractional or interpolated dates. Graph trace hues are intentionally distinct in both dark and light modes; no embedded legend is necessary because model chips and the Home ranking display matching colors.
 
-### macOS/Linux
+## Themes and mobile use
 
-Run `./start_server.sh`, then open `http://localhost:8000/`.
+Use the sun/moon button in the header to change the theme. The choice is saved in this browser's `localStorage` under `omd-dashboard-theme` and restored on subsequent visits. A different browser/device or cleared site data has its own preference.
 
-Or copy the package to any normal web server.
+The left navigation converts to a mobile drawer. Home ranking is a horizontally scrollable strip on small screens, graph widths are bounded to the mobile viewport, and the scorecard can scroll within its own table area without widening the page. Touch users have the graph zoom buttons even where desktop drag gestures are unavailable.
 
-## Data architecture
+## Replacing mock data with actual EVS statistics
 
-Data are partitioned by region under `data/regions/`. Only the requested region is loaded and cached in-browser. This keeps startup and mobile usage lighter while retaining a simple CSV-based interface.
+The current browser pipeline is:
 
-See `DATA_FORMAT.md` for the mock normalized contract. The future EVS integration should adapt native EVS CSV output into this contract (or update `DataService`) without requiring the dashboard UI to be rewritten.
+```text
+EVS native CSV files → normalization/adapter → regional normalized CSV
+                    → DataService → charts/scorecards
+```
 
+The prototype normalized contract is documented in **`DATA_FORMAT.md`**. Its principal fields are:
 
-## Home model group
+```text
+valid_date,model,region,metric,forecast_hour,value,sample_count,completeness
+```
 
-The Home **Model Group** selector currently contains only **Global**, representing the five-model suite in this prototype. The selector is retained so additional model groups can be added later without redesigning the control dock.
+`js/config.js` defines the model list, metric metadata, units, verification sources, lead choices, and presentation labels. `js/data-service.js` handles loading, filtering and aggregation. `js/charts.js` owns chart drawing/interaction/PNG export; `js/app.js` coordinates the interface. The Python scripts in `tools/` support mock-data generation and demonstrate one possible future CSV-normalization approach; they are **not required for serving the website**. The normalization script is a starter template and still needs adaptation to real EVS-native file formats.
 
+**Aggregation caution:** RMSE is pooled as RMS, ACC via Fisher-z, and Bias/ETS via arithmetic mean in this demonstration. Confirm these choices, sample weighting, verification masks/sources, missing-data behavior, and statistical comparability against the actual EVS/METplus output definitions before using any derived quantities operationally. Special care is required for Bias near zero and for pooled scores over different lead times.
 
-## Page selectors
+Additional technical notes are in **`ARCHITECTURE.md`**; release history is in **`CHANGELOG.md`**.
 
-The Home, Skill vs Lead, Scorecard, and Time Series pages each use a static selector panel at the top of the page content. On desktop, the Home selector expands to the full available width so a custom Start/End date range remains in the same row. On tablet and mobile widths, the controls reflow responsively rather than requiring a horizontally scrolling selector.
+## Revision notes for v21
 
-## Model trace colors
-
-The five-model palette intentionally uses widely separated hues (blue, gold, purple/magenta, teal, and orange) with separate dark- and light-theme variants. The same colors are reused consistently for plot traces, legends, model chips, and Home ranking markers.
-
-### Chart navigation (v16)
-Detailed line charts use a box-zoom interaction similar to modern benchmark/Plotly-style charts: drag across the plotting area to draw a visible selection rectangle, then release to zoom to that X/Y window. The selected X bounds snap to actual forecast leads or verification dates rather than invented/interpolated values. Mouse-wheel zoom remains available for horizontal zoom, Shift + drag pans, and Reset View restores the full domain. Traces and markers are clipped to the plotting rectangle.
-
-Skill vs Lead is backed by actual daily forecast-lead records from **Day 0 through Day 15** (`forecast_hour` 0–360 in 24-hour increments), so hover sampling is available at every integer forecast day.
-
-### v17 mobile Home layout
-The Home performance ranking/chart panel is explicitly constrained to the viewport on phones and tablets. The model ranking becomes a local horizontal scroller, while the chart itself always scales to the available content width. The page should not develop horizontal document-level scrolling from the Home chart.
-
-### Chart labeling and exports
-Charts include explicit axis titles. Date-based plots label the X axis as **Date**; Skill vs Forecast Lead uses **Forecast Lead Time (Days)**. Y-axis titles are derived from the selected verification metric and its units. Saved PNGs include a descriptive title plus the active region/date/baseline or forecast-lead context.
-### Home rank history
-
-The Home performance chart shows **rank position by valid date**, not the raw verification value. For every displayed valid date, the five models are ranked independently using the selected metric: higher ACC/ETS is better, lower RMSE is better, and Bias closest to zero is better. Rank 1 is plotted at the top. The ranking list to the left remains the overall ranking for the complete selected period using the aggregate verification score. Hovering a model name highlights its trace, and hovering a trace highlights the corresponding model in the ranking list.
-
-### Theme persistence
-
-The light/dark theme selection is stored in browser `localStorage` (`omd-dashboard-theme`). The saved theme is applied from the document head before the main stylesheet renders, so the most recent theme is restored on subsequent visits without a visible theme flash.
-
+- Consolidated this README to reflect the **actual current implementation** instead of the old v16 instructions.
+- Moved chart toolbars to a **non-overlay row above the plotting SVG** on all three chart-bearing pages; chart interactions and PNG exports otherwise remain unchanged.
+- Preserved the **server-ready ZIP root layout**, without start scripts or an enclosing folder.

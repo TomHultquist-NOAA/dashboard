@@ -1,3 +1,12 @@
+# Changelog
+
+## v21 (README and chart-toolbar layout)
+
+- Replaced outdated v16 README with accurate documentation for v21: site deployment, four pages, actual data/model/metric scope, rank-history interpretation, scorecards, chart export, theme persistence, and future CSV integration.
+- Moved Home, Skill vs Lead and Time Series chart toolbars **above the plot** in a dedicated non-overlay control row; the controls no longer cover traces, including in mobile layouts.
+- Kept zoom, pan, hover, reset and PNG image export behavior unchanged.
+- Preserved flat server-ready packaging without launch scripts.
+
 ## v20
 
 - Added the full interactive chart toolbar to the Home page model-rank-history graph.

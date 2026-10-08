@@ -218,3 +218,54 @@ body.home-route{padding-bottom:20px}
   .home-performance-chart-shell{padding-left:3px;padding-right:3px}
   .home-performance-chart{min-height:275px}
 }
+
+/* v21: Keep interactive controls outside the plotted SVG, with no overlay over traces.
+   This override intentionally wins over earlier desktop/mobile positioning rules. */
+.chart-controls-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  min-height:38px;
+  padding:4px 9px;
+  background:var(--surface-soft);
+  border-bottom:1px solid var(--line-soft);
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+}
+.chart-controls-row .chart-interaction-hint{
+  position:static;
+  z-index:auto;
+  margin:0;
+  padding:2px 3px;
+  background:none;
+  border:0;
+  box-shadow:none;
+  backdrop-filter:none;
+  max-width:100%;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.chart-controls-row .chart-tools{
+  position:static;
+  z-index:auto;
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  margin-left:auto;
+  padding:2px;
+  background:var(--surface);
+  border:1px solid var(--line-soft);
+  border-radius:8px;
+  box-shadow:none;
+  backdrop-filter:none;
+}
+.chart-controls-row .chart-tool:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:720px){
+  .chart-controls-row{padding:3px 6px;min-height:37px}
+  .chart-controls-row .chart-interaction-hint{display:none}
+  .chart-controls-row .chart-tools{position:static;top:auto;right:auto}
+}
