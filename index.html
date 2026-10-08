@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="OMD Model Performance Dashboard prototype using EVS-style verification statistics.">
+  <title>OMD Model Performance Dashboard</title>
+  <script>
+    (() => {
+      const saved = localStorage.getItem('omd-dashboard-theme');
+      document.documentElement.dataset.theme = saved === 'light' ? 'light' : 'dark';
+    })();
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside id="sidebar" class="sidebar" aria-label="Primary navigation">
+      <div class="sidebar-brand">
+        <div class="brand-mark" aria-hidden="true">EVS</div>
+        <div><strong>OMD</strong><span>Model Performance</span></div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-route="home" type="button"><svg viewBox="0 0 24 24"><path d="M3 10.7 12 3l9 7.7v9.1a1.2 1.2 0 0 1-1.2 1.2h-5.2v-6.1H9.4V21H4.2A1.2 1.2 0 0 1 3 19.8z"/></svg><span>Home</span></button>
+        <button class="nav-item" data-route="skill" type="button"><svg viewBox="0 0 24 24"><path d="M3 18 8.2 12.8l3.8 3.8L20.5 8"/><path d="M15.5 8h5v5"/></svg><span>Skill vs Lead</span></button>
+        <button class="nav-item" data-route="scorecard" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16"/></svg><span>Scorecard</span></button>
+        <button class="nav-item" data-route="timeseries" type="button"><svg viewBox="0 0 24 24"><path d="M4 17.5 8 13l3.2 2.4 4.3-7 4.5 3.1"/><path d="M4 4v16h16"/></svg><span>Time Series</span></button>
+      </nav>
+      <div class="sidebar-note"><strong>Prototype</strong><span>90 days of synthetic daily statistics structured for future EVS integration.</span></div>
+    </aside>
+    <button id="sidebar-backdrop" class="sidebar-backdrop" type="button" aria-label="Close navigation"></button>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="menu-toggle" class="icon-button menu-toggle" type="button" aria-label="Open navigation"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+          <div><h1 id="page-title">OMD Model Performance Dashboard</h1><p id="page-subtitle">Rapid model-performance situational awareness using EVS verification statistics</p></div>
+        </div>
+        <div class="topbar-actions">
+          <div class="header-status"><span class="status-dot ok"></span><span id="data-status">Loading data…</span></div>
+          <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode">
+            <span class="theme-icon moon"><svg viewBox="0 0 24 24"><path d="M20.3 15.6A9 9 0 0 1 8.4 3.7a9 9 0 1 0 11.9 11.9Z"/></svg></span>
+            <span class="theme-icon sun"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
+            <span id="theme-toggle-label">Light</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <section class="page active" data-page="home">
+          <section class="filter-panel card static-selector home-floating-selector" data-selector-key="home" aria-label="Dashboard filters">
+            <div class="filter-grid selector-fields">
+              <label>Model Group<select id="home-model-group-filter"></select></label>
+              <label>Region<select id="home-region-filter"></select></label>
+              <label>Date Window<select id="home-period-filter"></select></label>
+              <label id="home-start-wrap" class="custom-date hidden">Start Date<input id="home-start-date" type="date"></label>
+              <label id="home-end-wrap" class="custom-date hidden">End Date<input id="home-end-date" type="date"></label>
+              <label>Baseline<select id="home-baseline-filter"></select></label>
+              <label class="wide-filter">Primary Metric<select id="home-primary-metric-filter"></select></label>
+              <label>Forecast Lead<select id="home-lead-filter"></select></label>
+              <div class="filter-action"><span>View</span><button id="reset-btn" class="reset-filter-button" type="button">Reset View</button></div>
+            </div>
+          </section>
+
+          <section class="card home-performance-card">
+            <header class="card-header">
+              <div>
+                <h2 id="home-performance-title">Model Performance</h2>
+                <p id="home-performance-subtitle">Daily rank position for each model across the selected verification period.</p>
+              </div>
+            </header>
+            <div class="home-performance-layout">
+              <aside class="home-ranking" aria-label="Model ranking">
+                <div class="home-ranking-head"><span>Rank</span><span id="home-ranking-metric">Score</span></div>
+                <div id="home-ranking-list" class="home-ranking-list"></div>
+              </aside>
+              <div class="home-performance-chart-wrap">
+                <div class="chart-shell home-performance-chart-shell"><div id="home-performance-chart" class="chart home-performance-chart"></div></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card section-card home-scorecard-card">
+            <header class="card-header">
+              <div><h2>Verification Scorecard</h2><p>Performance relative to the selected baseline. Blue indicates improvement, gray is near the baseline, and red indicates degradation.</p></div>
+              <button class="text-link" data-go="scorecard" type="button">Open full scorecard →</button>
+            </header>
+            <div class="score-gradient-legend home-gradient"><span>Worse</span><i></i><span>Baseline</span><i class="reverse"></i><span>Better</span></div>
+            <div class="table-wrap compact-home-scorecard"><table id="home-scorecard-table"></table></div>
+          </section>
+
+          <section class="content-grid home-primary-grid">
+            <article class="card">
+              <header class="card-header"><div><h2>Notable Signals</h2><p>Largest recent changes in model behavior relative to the preceding 15-day verification window.</p></div><span class="tag">automated triage</span></header>
+              <div id="signals-list" class="signal-list"></div>
+            </article>
+            <article class="card">
+              <header class="card-header"><div><h2>Category Snapshot</h2><p>Average baseline-relative performance by verification category.</p></div></header>
+              <div id="category-summary" class="category-grid"></div>
+            </article>
+          </section>
+
+        </section>
+
+        <section class="page" data-page="skill">
+          <div class="page-heading"><div><h2>Skill vs Forecast Lead</h2><p>Percent improvement or degradation relative to a user-selected baseline model across forecast lead.</p></div></div>
+          <section class="detail-controls card static-selector" data-selector-key="skill">
+            <div class="detail-filter-grid selector-fields">
+              <label>Variable<select id="skill-variable-filter"></select></label>
+              <label>Metric<select id="skill-metric-filter"></select></label>
+              <label>Region<select id="skill-region-filter"></select></label>
+              <label>Baseline<select id="skill-baseline-filter"></select></label>
+              <label>Date Window<select id="skill-period-filter"></select></label>
+              <label id="skill-start-wrap" class="custom-date hidden">Start Date<input id="skill-start-date" type="date"></label>
+              <label id="skill-end-wrap" class="custom-date hidden">End Date<input id="skill-end-date" type="date"></label>
+            </div>
+          </section>
+          <article class="card detail-chart-card">
+            <header class="card-header stack-mobile"><div><h2 id="skill-chart-title">Skill vs Lead</h2><p id="skill-chart-subtitle"></p></div><div class="selection-actions"><button id="skill-select-all" class="small-button" type="button">Select all</button><button id="skill-clear-all" class="small-button" type="button">Clear</button></div></header>
+            <div id="skill-model-chips" class="chip-row"></div><div class="chart-shell detail-chart-shell"><div id="skill-chart" class="chart interactive-chart"></div></div><div id="skill-verification-note" class="verification-note"></div>
+          </article>
+        </section>
+
+        <section class="page" data-page="scorecard">
+          <div class="page-heading"><div><h2>Scorecard</h2><p>Compact baseline-relative verification panels by variable and metric. Positive values indicate improvement versus the selected baseline.</p></div></div>
+          <section class="detail-controls card scorecard-filter-card static-selector" data-selector-key="scorecard">
+            <div class="detail-filter-grid scorecard-controls selector-fields">
+              <label>Region<select id="score-region-filter"></select></label>
+              <label>Baseline<select id="score-baseline-filter"></select></label>
+              <label>Date Window<select id="score-period-filter"></select></label>
+              <label id="score-start-wrap" class="custom-date hidden">Start Date<input id="score-start-date" type="date"></label>
+              <label id="score-end-wrap" class="custom-date hidden">End Date<input id="score-end-date" type="date"></label>
+            </div>
+          </section>
+          <div class="scorecard-header-row"><div class="score-gradient-legend"><span>Worse</span><i></i><span>Baseline</span><i class="reverse"></i><span>Better</span></div><span id="scorecard-context" class="context-note"></span></div>
+          <div id="scorecard-sections" class="scorecard-sections scorecard-panel-grid"></div>
+        </section>
+
+        <section class="page" data-page="timeseries">
+          <div class="page-heading"><div><h2>Time Series</h2><p>Daily absolute verification statistics at a selected forecast lead using the appropriate truth source.</p></div></div>
+          <section class="detail-controls card static-selector" data-selector-key="timeseries">
+            <div class="detail-filter-grid selector-fields">
+              <label>Variable<select id="ts-variable-filter"></select></label>
+              <label>Metric<select id="ts-metric-filter"></select></label>
+              <label>Region<select id="ts-region-filter"></select></label>
+              <label>Forecast Lead<select id="ts-lead-filter"></select></label>
+              <label>Date Window<select id="ts-period-filter"></select></label>
+              <label id="ts-start-wrap" class="custom-date hidden">Start Date<input id="ts-start-date" type="date"></label>
+              <label id="ts-end-wrap" class="custom-date hidden">End Date<input id="ts-end-date" type="date"></label>
+            </div>
+          </section>
+          <article class="card detail-chart-card">
+            <header class="card-header stack-mobile"><div><h2 id="ts-chart-title">Time Series</h2><p id="ts-chart-subtitle"></p></div><div class="selection-actions"><button id="ts-select-all" class="small-button" type="button">Select all</button><button id="ts-clear-all" class="small-button" type="button">Clear</button></div></header>
+            <div id="ts-model-chips" class="chip-row"></div><div class="chart-shell detail-chart-shell"><div id="ts-chart" class="chart interactive-chart"></div></div><div id="ts-verification-note" class="verification-note"></div>
+          </article>
+        </section>
+      </main>
+
+      <footer class="app-footer">OMD Model Performance Dashboard prototype · Synthetic demonstration statistics · No operational conclusions should be drawn from displayed values.</footer>
+    </div>
+  </div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
