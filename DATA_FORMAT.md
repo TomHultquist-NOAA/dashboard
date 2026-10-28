@@ -1,4 +1,4 @@
-# Data format — v32
+# Data format — 1.0.0
 
 ## Browser-facing normalized CSVs
 

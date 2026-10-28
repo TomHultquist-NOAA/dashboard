@@ -1,4 +1,4 @@
-# OMD Model Performance Dashboard — v32
+# OMD Model Performance Dashboard — 1.0.0
 
 A static, responsive dashboard for comparing available **NOAA OMD Evaluation and Verification System (EVS)** summary statistics for global guidance systems. The interface offers Home rankings, Skill vs Lead, Scorecard, Time Series, Methodology, and Changelog, with a persistent dark/light theme and interactive charts.
 
@@ -95,11 +95,11 @@ CHANGELOG.md
 
 No startup server scripts or top-level enclosing directory are included. No login credentials, SSH keys, or locally downloaded raw `.stat` files are included.
 
-## v32 audit and documentation refresh
+## Release 1.0.0 — first user release
 
-- Corrected the in-app Changelog to show v32 as current, followed by v31 and v30 with no duplicate releases.
-- Reviewed the user-facing Methodology for consistency with seven models, three available products, dynamic N/A metric selectors and matched baseline comparisons.
-- Replaced outdated references to v29/v30 in this README and reference files with current integration and GitHub deployment instructions.
-- Added the guarded cron workflow and data freshness/validation checks. **No scoring formulas, source metric definitions or chart interactions were changed in this release.**
+- Custom Range now presents compact Start Date and End Date fields without stretching them to fill large grid columns. The standard 7/15/30/60/90-day selection layout is unchanged.
+- The in-app Changelog, footer, and documentation use **1.0.0** as the current release. Earlier development builds are listed as **0.N.0** (for example, the former development build 32 is now recorded as **0.32.0**).
+- The dashboard remains static and can be deployed from GitHub or a web server without a build step. Verification calculations, metric availability handling, and Python 3.6-compatible cron workflow are unchanged.
+- **The full package contains empty regional CSV placeholders**. For an existing live installation, use the update-only ZIP or preserve your real `data/` files before replacing anything.
 
 For scientific interpretation see the **Methodology** page; for data schema and internal design see [DATA_FORMAT.md](DATA_FORMAT.md) and [ARCHITECTURE.md](ARCHITECTURE.md). Questions and comments can be directed to [Tom Hultquist](mailto:thomas.hultquist@noaa.gov), Office of Modeling and Development, Evaluation and Verification Unit.

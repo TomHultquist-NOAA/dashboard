@@ -1,4 +1,4 @@
-# Daily verification updates — cron setup (v32)
+# Daily verification updates — cron setup (1.0.0)
 
 The dashboard is static: its browser pages **read** `data/regions/*.csv`; they do not download NOAA `.stat` files themselves. Schedule the importer on a system that can access `https://emc.ncep.noaa.gov/gmb/mpr/dashboard_stats/`, **then publish** the resulting CSVs to the directory served by the dashboard. Merely running the importer on a processing host does not update a separate web server or GitHub Pages site.
 

@@ -1,4 +1,4 @@
-# Architecture — OMD Model Performance Dashboard v32
+# Architecture — OMD Model Performance Dashboard 1.0.0
 
 ## Data pipeline
 

@@ -78,8 +78,13 @@ function rangeLabel(s){
   return `last ${s.period} days`;
 }
 function setCustomVisible(prefix,s){
-  $(`${prefix}-start-wrap`)?.classList.toggle('hidden',s.period!=='custom');
-  $(`${prefix}-end-wrap`)?.classList.toggle('hidden',s.period!=='custom');
+  const active=s.period==='custom';
+  const startWrap=$(`${prefix}-start-wrap`),endWrap=$(`${prefix}-end-wrap`);
+  startWrap?.classList.toggle('hidden',!active);
+  endWrap?.classList.toggle('hidden',!active);
+  startWrap?.closest('.custom-date-pair')?.classList.toggle('hidden',!active);
+  // Only Custom Range needs compact date fields; presets keep their usual grid.
+  startWrap?.closest('.selector-fields')?.classList.toggle('custom-range-active',active);
 }
 function syncDateLimits(){
   const yesterday=new Date();yesterday.setUTCHours(0,0,0,0);yesterday.setUTCDate(yesterday.getUTCDate()-1);

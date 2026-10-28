@@ -55,8 +55,10 @@
               <label>Model Group<select id="home-model-group-filter"></select></label>
               <label>Region<select id="home-region-filter"></select></label>
               <label>Date Window<select id="home-period-filter"></select></label>
-              <label id="home-start-wrap" class="custom-date hidden">Start Date<input id="home-start-date" type="date"></label>
-              <label id="home-end-wrap" class="custom-date hidden">End Date<input id="home-end-date" type="date"></label>
+              <div class="custom-date-pair hidden" role="group" aria-label="Custom date range">
+                <label id="home-start-wrap" class="custom-date hidden">Start Date<input id="home-start-date" type="date"></label>
+                <label id="home-end-wrap" class="custom-date hidden">End Date<input id="home-end-date" type="date"></label>
+              </div>
               <label class="wide-filter">Primary Metric<select id="home-primary-metric-filter"></select></label>
               <label>Forecast Lead<select id="home-lead-filter"></select></label>
               <div class="filter-action"><span>View</span><button id="reset-btn" class="reset-filter-button" type="button">Reset View</button></div>
@@ -116,8 +118,10 @@
               <label>Baseline<select id="skill-baseline-filter"></select></label>
               <label>Comparison Method<select id="skill-comparison-filter"></select></label>
               <label>Date Window<select id="skill-period-filter"></select></label>
-              <label id="skill-start-wrap" class="custom-date hidden">Start Date<input id="skill-start-date" type="date"></label>
-              <label id="skill-end-wrap" class="custom-date hidden">End Date<input id="skill-end-date" type="date"></label>
+              <div class="custom-date-pair hidden" role="group" aria-label="Custom date range">
+                <label id="skill-start-wrap" class="custom-date hidden">Start Date<input id="skill-start-date" type="date"></label>
+                <label id="skill-end-wrap" class="custom-date hidden">End Date<input id="skill-end-date" type="date"></label>
+              </div>
             </div>
           </section>
           <article class="card detail-chart-card">
@@ -134,8 +138,10 @@
               <label>Baseline<select id="score-baseline-filter"></select></label>
               <label>Comparison Method<select id="score-comparison-filter"></select></label>
               <label>Date Window<select id="score-period-filter"></select></label>
-              <label id="score-start-wrap" class="custom-date hidden">Start Date<input id="score-start-date" type="date"></label>
-              <label id="score-end-wrap" class="custom-date hidden">End Date<input id="score-end-date" type="date"></label>
+              <div class="custom-date-pair hidden" role="group" aria-label="Custom date range">
+                <label id="score-start-wrap" class="custom-date hidden">Start Date<input id="score-start-date" type="date"></label>
+                <label id="score-end-wrap" class="custom-date hidden">End Date<input id="score-end-date" type="date"></label>
+              </div>
             </div>
           </section>
           <div class="scorecard-header-row"><div class="score-gradient-legend"><span>Worse</span><i></i><span>Baseline</span><i class="reverse"></i><span>Better</span></div><span id="scorecard-context" class="context-note"></span></div>
@@ -151,8 +157,10 @@
               <label>Region<select id="ts-region-filter"></select></label>
               <label>Forecast Lead<select id="ts-lead-filter"></select></label>
               <label>Date Window<select id="ts-period-filter"></select></label>
-              <label id="ts-start-wrap" class="custom-date hidden">Start Date<input id="ts-start-date" type="date"></label>
-              <label id="ts-end-wrap" class="custom-date hidden">End Date<input id="ts-end-date" type="date"></label>
+              <div class="custom-date-pair hidden" role="group" aria-label="Custom date range">
+                <label id="ts-start-wrap" class="custom-date hidden">Start Date<input id="ts-start-date" type="date"></label>
+                <label id="ts-end-wrap" class="custom-date hidden">End Date<input id="ts-end-date" type="date"></label>
+              </div>
             </div>
           </section>
           <article class="card detail-chart-card">
@@ -161,7 +169,7 @@
           </article>
         </section>
 
-        <!-- Reference pages are written for the current prototype, not as claims about EVS operations. -->
+        <!-- Reference pages describe verification results without claiming unavailable datasets. -->
         <section class="page reference-page" data-page="methodology">
           <div class="reference-hero card">
             <div>
@@ -252,36 +260,37 @@
             <div>
               <div class="reference-eyebrow">REFERENCE / 02</div>
               <h2>Changelog</h2>
-              <p>What has changed in the OMD Model Performance Dashboard prototype, newest first.</p>
-              <div class="reference-pills"><span>Current build · v32</span><span>Development prototype</span></div>
+              <p>Dashboard updates and release history, newest first.</p>
+              <div class="reference-pills"><span>Current version · 1.0.0</span><span>Initial public release</span></div>
             </div>
             <div class="reference-hero-symbol" aria-hidden="true">↻</div>
           </div>
           <div class="release-list">
-            <article class="release-card card current-release"><div class="release-side"><strong>v32</strong><span class="release-status">Current</span><small>October 28, 2026</small></div><div><h3>Documentation and scheduled data updates</h3><p>Refreshed the Methodology, Changelog, and deployment documentation. Added a validated daily-update workflow to publish new verification data to a web server or GitHub. The existing verification displays and calculations remain unchanged.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v31</strong><small>October 28, 2026</small></div><div><h3>Clearer metric availability</h3><p>Unavailable metrics and variables remain visible in dropdown menus as N/A but cannot be selected. Options automatically reflect the verification data available for the selected region.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v30</strong><small>October 28, 2026</small></div><div><h3>Simplified Home controls</h3><p>Moved the baseline control into the Home scorecard, clarified detailed comparisons, and removed unnecessary technical explanations.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v29</strong><small>October 28, 2026</small></div><div><h3>Model coverage and relative comparisons</h3><p>Improved model comparisons and missing-data visibility, with Day 5 as the default Home forecast lead. Missing results remain N/A.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v28</strong><small>October 28, 2026</small></div><div><h3>Python 3.6 ingestion support</h3><p>Updated the EVS statistics importer to run under Python 3.6.8 without changing displayed scores or dashboard behavior.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v27</strong><small>October 27, 2026</small></div><div><h3>Real verification data and missing-data handling</h3><p>Enabled real verification data ingestion for seven models across H500 ACC, T850 RMSE, and MSLP RMSE. Unavailable metrics display N/A. Synthetic statistics were removed.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v26</strong><small>October 8, 2026</small></div><div><h3>Icon-only theme toggle</h3><p>Removed the visible Light/Dark text from the theme button while retaining the sun/moon icons, accessible labels, hover descriptions, and remembered theme preference.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v25</strong><small>October 8, 2026</small></div><div><h3>Theme toggle icon correction</h3><p>Made the sun icon accompany the Light option and the moon icon accompany the Dark option. The button’s accessible label now updates with the selected action.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v24</strong><small>October 8, 2026</small></div><div><h3>Clearer methodology and Home footer</h3><p>Streamlined Methodology to focus on reading and interpreting dashboard results. Added the dashboard update date, most recent verification date, and a contact link beneath the Home footer.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v23</strong><small>October 8, 2026</small></div><div><h3>In-app documentation</h3><p>Introduced dedicated <strong>Methodology</strong> and <strong>Changelog</strong> pages under a Reference group in the left navigation. Documented metric definitions, model rankings, scorecard comparisons, and interpretation guidance. No changes to verification data or chart computations.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v22</strong><small>Period filters</small></div><div><h3>60-day selection</h3><p>Added the Last 60 Days preset to the date selectors on Home, Skill vs Lead, Scorecard, and Time Series.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v21</strong><small>Usability</small></div><div><h3>Graph controls &amp; documentation</h3><p>Moved zoom, reset, and PNG controls into a separate strip above each interactive graph, preventing overlap with data traces. Refreshed the deployment README.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v20</strong><small>Home</small></div><div><h3>Interactive Home rank history</h3><p>Brought box zoom, mouse-wheel zoom, Shift+drag panning, reset, and titled PNG export to the Home ranking graph.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v19</strong><small>Rankings</small></div><div><h3>Daily position tracking</h3><p>Changed Home's main plot to daily model rank, keeping overall ranking based on full-period aggregate score. Retained the most recently selected dark/light theme between visits.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v18</strong><small>Charts</small></div><div><h3>Axis and export titles</h3><p>Added meaningful X/Y axis labels and contextual titles/subtitles to exported chart PNGs.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v17</strong><small>Responsive</small></div><div><h3>Mobile Home layout</h3><p>Corrected the Home chart's horizontal overflow and made the model ranking strip scroll independently on narrow displays.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v16</strong><small>Data &amp; interaction</small></div><div><h3>Daily leads and box zoom</h3><p>Expanded mock forecast leads to Days 0–15 at 24-hour intervals. Added drag-to-select zoom and Shift+drag panning to detailed charts.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v15</strong><small>Charts</small></div><div><h3>Safer zoom and date axes</h3><p>Clipped traces to graph bounds, stabilized date ticks using actual sample dates, and removed inset graph legends.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v14</strong><small>Navigation</small></div><div><h3>Static selectors and canvas export</h3><p>Returned filters to static top-of-page panels, fixed Skill vs Lead's 0–15-day axis, and replaced SVG-based PNG export with canvas rendering.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v13</strong><small>Scorecards</small></div><div><h3>Baseline-relative scorecards</h3><p>Introduced model-selectable baselines, red/neutral/blue multi-shade scorecards, and distinct chart palettes for dark and light themes. The selector's temporary draggable behavior was subsequently retired in v14.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v12</strong><small>Home design</small></div><div><h3>High-level landing page</h3><p>Introduced linked model ranking and trend graph, removed duplicate small charts, and retained a compact scorecard above the signal and category summaries.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v11</strong><small>Regions</small></div><div><h3>Four global verification domains</h3><p>Reduced regions to Global, Northern Hemisphere, Southern Hemisphere, and Tropics and regenerated mock statistics accordingly.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v10</strong><small>Core scope</small></div><div><h3>Initial OMD metric catalog</h3><p>Focused the prototype on five models and ACC, RMSE, Bias, and precipitation ETS, with a 90-day history and multi-panel Scorecard.</p></div></article>
-            <article class="release-card card"><div class="release-side"><strong>v9</strong><small>Foundation</small></div><div><h3>Analysis workspaces</h3><p>Established sidebar-based Home, Skill vs Lead, Scorecard, and Time Series views with modular CSV loading and desktop/mobile navigation.</p></div></article>
+            <article class="release-card card current-release"><div class="release-side"><strong>1.0.0</strong><span class="release-status">Current</span><small>October 28, 2026</small></div><div><h3>First public release</h3><p>Prepared the dashboard for users with compact Custom Range date controls across all four pages, consistent release numbering, and updated user and GitHub documentation. Verification calculations and available datasets are unchanged.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.32.0</strong><small>October 28, 2026</small></div><div><h3>Documentation and scheduled data updates</h3><p>Refreshed the Methodology, Changelog, and deployment documentation. Added a validated daily-update workflow to publish new verification data to a web server or GitHub. The existing verification displays and calculations remain unchanged.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.31.0</strong><small>October 28, 2026</small></div><div><h3>Clearer metric availability</h3><p>Unavailable metrics and variables remain visible in dropdown menus as N/A but cannot be selected. Options automatically reflect the verification data available for the selected region.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.30.0</strong><small>October 28, 2026</small></div><div><h3>Simplified Home controls</h3><p>Moved the baseline control into the Home scorecard, clarified detailed comparisons, and removed unnecessary technical explanations.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.29.0</strong><small>October 28, 2026</small></div><div><h3>Model coverage and relative comparisons</h3><p>Improved model comparisons and missing-data visibility, with Day 5 as the default Home forecast lead. Missing results remain N/A.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.28.0</strong><small>October 28, 2026</small></div><div><h3>Python 3.6 ingestion support</h3><p>Updated the EVS statistics importer to run under Python 3.6.8 without changing displayed scores or dashboard behavior.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.27.0</strong><small>October 27, 2026</small></div><div><h3>Real verification data and missing-data handling</h3><p>Enabled real verification data ingestion for seven models across H500 ACC, T850 RMSE, and MSLP RMSE. Unavailable metrics display N/A. Synthetic statistics were removed.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.26.0</strong><small>October 8, 2026</small></div><div><h3>Icon-only theme toggle</h3><p>Removed the visible Light/Dark text from the theme button while retaining the sun/moon icons, accessible labels, hover descriptions, and remembered theme preference.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.25.0</strong><small>October 8, 2026</small></div><div><h3>Theme toggle icon correction</h3><p>Made the sun icon accompany the Light option and the moon icon accompany the Dark option. The button’s accessible label now updates with the selected action.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.24.0</strong><small>October 8, 2026</small></div><div><h3>Clearer methodology and Home footer</h3><p>Streamlined Methodology to focus on reading and interpreting dashboard results. Added the dashboard update date, most recent verification date, and a contact link beneath the Home footer.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.23.0</strong><small>October 8, 2026</small></div><div><h3>In-app documentation</h3><p>Introduced dedicated <strong>Methodology</strong> and <strong>Changelog</strong> pages under a Reference group in the left navigation. Documented metric definitions, model rankings, scorecard comparisons, and interpretation guidance. No changes to verification data or chart computations.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.22.0</strong><small>Period filters</small></div><div><h3>60-day selection</h3><p>Added the Last 60 Days preset to the date selectors on Home, Skill vs Lead, Scorecard, and Time Series.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.21.0</strong><small>Usability</small></div><div><h3>Graph controls &amp; documentation</h3><p>Moved zoom, reset, and PNG controls into a separate strip above each interactive graph, preventing overlap with data traces. Refreshed the deployment README.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.20.0</strong><small>Home</small></div><div><h3>Interactive Home rank history</h3><p>Brought box zoom, mouse-wheel zoom, Shift+drag panning, reset, and titled PNG export to the Home ranking graph.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.19.0</strong><small>Rankings</small></div><div><h3>Daily position tracking</h3><p>Changed Home's main plot to daily model rank, keeping overall ranking based on full-period aggregate score. Retained the most recently selected dark/light theme between visits.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.18.0</strong><small>Charts</small></div><div><h3>Axis and export titles</h3><p>Added meaningful X/Y axis labels and contextual titles/subtitles to exported chart PNGs.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.17.0</strong><small>Responsive</small></div><div><h3>Mobile Home layout</h3><p>Corrected the Home chart's horizontal overflow and made the model ranking strip scroll independently on narrow displays.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.16.0</strong><small>Data &amp; interaction</small></div><div><h3>Daily leads and box zoom</h3><p>Expanded mock forecast leads to Days 0–15 at 24-hour intervals. Added drag-to-select zoom and Shift+drag panning to detailed charts.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.15.0</strong><small>Charts</small></div><div><h3>Safer zoom and date axes</h3><p>Clipped traces to graph bounds, stabilized date ticks using actual sample dates, and removed inset graph legends.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.14.0</strong><small>Navigation</small></div><div><h3>Static selectors and canvas export</h3><p>Returned filters to static top-of-page panels, fixed Skill vs Lead's 0–15-day axis, and replaced SVG-based PNG export with canvas rendering.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.13.0</strong><small>Scorecards</small></div><div><h3>Baseline-relative scorecards</h3><p>Introduced model-selectable baselines, red/neutral/blue multi-shade scorecards, and distinct chart palettes for dark and light themes. The selector's temporary draggable behavior was subsequently retired in 0.14.0.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.12.0</strong><small>Home design</small></div><div><h3>High-level landing page</h3><p>Introduced linked model ranking and trend graph, removed duplicate small charts, and retained a compact scorecard above the signal and category summaries.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.11.0</strong><small>Regions</small></div><div><h3>Four global verification domains</h3><p>Reduced regions to Global, Northern Hemisphere, Southern Hemisphere, and Tropics and regenerated mock statistics accordingly.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.10.0</strong><small>Core scope</small></div><div><h3>Initial OMD metric catalog</h3><p>Focused the prototype on five models and ACC, RMSE, Bias, and precipitation ETS, with a 90-day history and multi-panel Scorecard.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.9.0</strong><small>Foundation</small></div><div><h3>Analysis workspaces</h3><p>Established sidebar-based Home, Skill vs Lead, Scorecard, and Time Series views with modular CSV loading and desktop/mobile navigation.</p></div></article>
           </div>
           <p class="reference-changelog-note">This log summarizes major dashboard changes. Unavailable verification results display N/A.</p>
         </section>
@@ -290,7 +299,7 @@
       <footer class="app-footer">
         <div>OMD Model Performance Dashboard · EVS summary statistics · Missing data are indicated as N/A.</div>
         <div class="home-footer-extra" aria-label="Dashboard update and contact information">
-          <div>Dashboard last updated: <time datetime="2026-10-28">October 28, 2026</time> (v32) · Latest available verification date: <time id="footer-verification-date">N/A</time></div>
+          <div>Dashboard last updated: <time datetime="2026-10-28">October 28, 2026</time> (1.0.0) · Latest available verification date: <time id="footer-verification-date">N/A</time></div>
           <div>Questions and comments can be directed to <a href="mailto:thomas.hultquist@noaa.gov">Tom Hultquist</a>, Office of Modeling and Development, Evaluation and Verification Unit.</div>
         </div>
       </footer>
