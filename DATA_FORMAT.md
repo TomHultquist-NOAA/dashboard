@@ -1,41 +1,41 @@
-# Dashboard CSV Contract
+# Data format — v32
 
-Each regional CSV contains one row per daily verification statistic, model, metric, and forecast lead.
+## Browser-facing normalized CSVs
 
-```text
-valid_date,model,region,metric,forecast_hour,value,sample_count,completeness
-2026-10-06,GFS,Global,H500_ACC,120,0.927531,31842,99.21
+The browser reads one UTF-8 CSV per region from `data/regions/`. Files are created by `tools/ingest_evs_stat.py` and have this exact header:
+
+```csv
+valid_date,model,region,metric,forecast_hour,value,sample_count,completeness,verification_source
 ```
 
-## Fields
+| Field | Meaning |
+|---|---|
+| `valid_date` | Forecast verification date (`YYYY-MM-DD`, interpreted as UTC) |
+| `model` | `GFS`, `AIGFS`, `CFS`, `CMC`, `ECMWF`, `FNMOC`, `UKMET` |
+| `region` | `Global`, `Northern Hemisphere`, `Southern Hemisphere`, `Tropics` |
+| `metric` | Currently `H500_ACC`, `MSLP_RMSE`, or `T850_RMSE`; other configured metrics have no rows until available |
+| `forecast_hour` | Numeric forecast lead in hours: 0, 24, …, 360 |
+| `value` | Actual finite verification summary statistic, in the metric's units |
+| `sample_count` | Empty until a scientifically appropriate raw sample count is available |
+| `completeness` | Empty until a suitable completeness measure is supplied |
+| `verification_source` | Verifying dataset identifier from source summary metadata; empty when unspecified |
 
-- `valid_date` — verification date in `YYYY-MM-DD` format.
-- `model` — GFS, GEFS, AIGFS, AIGEFS, or HGEFS in this prototype.
-- `region` — verification region.
-- `metric` — normalized metric key defined in `js/config.js`.
-- `forecast_hour` — forecast lead in hours.
-- `value` — verification statistic.
-- `sample_count` — contributing verification sample count.
-- `completeness` — percent data completeness.
+One logical record is identified by `valid_date`, `model`, `region`, `metric`, and `forecast_hour`. A missing combination is **absent** from the CSV and appears as `N/A` or a gap. It must never be silently filled with zero or invented observations.
 
-## Initial metric keys
+## Source data
 
-The prototype contains only ACC, RMSE, Bias, and precipitation ETS:
+URLs are of the form:
 
-- `T2M_RMSE`, `T2M_BIAS`
-- `T850_RMSE`, `T850_BIAS`
-- `H500_ACC`, `H500_RMSE`, `H500_BIAS`
-- `MSLP_RMSE`, `MSLP_BIAS`
-- `WIND10_RMSE`, `WIND10_BIAS`
-- `PRECIP24_ETS`
+```text
+https://emc.ncep.noaa.gov/gmb/mpr/dashboard_stats/YYYYMMDD/model/model_METRIC_YYYYMMDD.stat
+```
 
-Configured mock truth sources are URMA, GDAS Analysis, and MRMS QPE depending on the parameter.
+Metric file suffixes: `H500_ACC`, `T850_RMSE`, `MSLP_RMSE`. The source is MET Stat-Analysis `.stat` format with `COL_NAME` and `SUMMARY` records. The importer parses `FCST_VALID_BEG` into `valid_date`, `VX_MASK` into the region, `FCST_LEAD` from MET HHMMSS into integer forecast hours, and `WMO_WEIGHTED_MEAN` or `MEAN` into `value`. It uses `-obtype` from source `JOB_LIST` as the verification-source label when available. Forecast leads are sampled every 24 hours for the present UI, not temporally averaged.
 
-## Date handling
+## Availability and publication
 
-The dashboard expects daily rows and discovers the available archive bounds from the CSV. The custom date range inputs are constrained to those bounds. For the current v23 demonstration the range is 2026-07-09 through 2026-10-06, i.e. 90 days ending the day before the prototype's October 7, 2026 reference date.
+`data/ingest_report.json` includes requested dates, actual date coverage, counts, HTTP 404s, duplicate keys, and importer errors. Its `generated_utc` describes when ingestion ran; it is distinct from `latest_valid_date` shown on Home.
 
-## Forecast-lead cadence
+The cron update wrapper stages new files in `.cron-work/` by default, validates the output, and publishes the entire group of regional CSVs and the report. Raw `.stat` download cache and cron temporary files are excluded from the Git repository via `.gitignore`. See [CRON_SETUP.md](CRON_SETUP.md).
 
-For this prototype, every metric/model/date combination contains one record at each daily forecast lead from **Day 0 through Day 15**: `forecast_hour = 0, 24, 48, ..., 360`. The detailed Skill vs Lead page therefore samples actual data at every integer forecast day rather than interpolating between sparse lead times.
-
+The packaged CSVs have headers only. **Copy/retain your real data when updating a populated installation.** The source archive of actual regional CSVs is not available in this environment.

@@ -1,0 +1,7 @@
+{
+  "status": "not_run",
+  "requested_metrics": ["H500_ACC", "T850_RMSE", "MSLP_RMSE"],
+  "models": ["gfs", "aigfs", "cfs", "cmc", "ecmwf", "fnmoc", "ukmet"],
+  "normalized_rows": 0,
+  "message": "Run tools/ingest_evs_stat.py on a machine with access to the source data to populate the four regional CSVs. N/A is displayed until then."
+}

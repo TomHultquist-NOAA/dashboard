@@ -11,23 +11,26 @@ export const CONFIG = {
   regions: ['Global', 'Northern Hemisphere', 'Southern Hemisphere', 'Tropics'],
 
   modelMeta: {
-    GFS:    { family:'Global',   color:'#4EA1FF', lightColor:'#0057B8' },
-    GEFS:   { family:'Ensemble', color:'#FFD23F', lightColor:'#946200' },
-    AIGFS:  { family:'AI',       color:'#D66BFF', lightColor:'#8E24AA' },
-    AIGEFS: { family:'AI',       color:'#35D0BA', lightColor:'#00796B' },
-    HGEFS:  { family:'Ensemble', color:'#FF7A45', lightColor:'#C2410C' }
+    GFS:   { family:'Global', color:'#4EA1FF', lightColor:'#0057B8' },
+    AIGFS: { family:'Global', color:'#D66BFF', lightColor:'#8E24AA' },
+    CFS:   { family:'Global', color:'#FFD23F', lightColor:'#946200' },
+    CMC:   { family:'Global', color:'#35D0BA', lightColor:'#00796B' },
+    ECMWF: { family:'Global', color:'#FF7A45', lightColor:'#C2410C' },
+    FNMOC: { family:'Global', color:'#D3E76D', lightColor:'#53670A' },
+    UKMET: { family:'Global', color:'#E981B7', lightColor:'#A01361' }
   },
 
   variables: {
-    T2M:      { label:'2m Temperature', short:'2m Temp', category:'Surface', level:'2 m AGL', obsSource:'URMA' },
-    T850:     { label:'Temperature 850 hPa', short:'T850', category:'Upper Air', level:'850 hPa', obsSource:'GDAS Analysis' },
-    H500:     { label:'Geopotential Height 500 hPa', short:'H500', category:'Upper Air', level:'500 hPa', obsSource:'GDAS Analysis' },
-    MSLP:     { label:'Mean Sea Level Pressure', short:'MSLP', category:'Surface', level:'MSL', obsSource:'GDAS Analysis' },
-    WIND10:   { label:'10m Wind Speed', short:'10m Wind', category:'Surface', level:'10 m AGL', obsSource:'URMA' },
-    PRECIP24: { label:'24h Precipitation', short:'24h QPF', category:'Precipitation', level:'24 h accumulation', obsSource:'MRMS QPE' }
+    T2M:      { label:'2m Temperature', short:'2m Temp', category:'Surface', level:'2 m AGL', obsSource:'Verification source pending' },
+    T850:     { label:'Temperature 850 hPa', short:'T850', category:'Upper Air', level:'850 hPa', obsSource:'Analysis data' },
+    H500:     { label:'Geopotential Height 500 hPa', short:'H500', category:'Upper Air', level:'500 hPa', obsSource:'Analysis data' },
+    MSLP:     { label:'Mean Sea Level Pressure', short:'MSLP', category:'Surface', level:'MSL', obsSource:'Analysis data' },
+    WIND10:   { label:'10m Wind Speed', short:'10m Wind', category:'Surface', level:'10 m AGL', obsSource:'Verification source pending' },
+    PRECIP24: { label:'24h Precipitation', short:'24h QPF', category:'Precipitation', level:'24 h accumulation', obsSource:'Verification source pending' }
   },
 
-  // Initial operational scope: ACC, RMSE, Bias, and ETS for precipitation.
+  // Only H500 ACC, MSLP RMSE, T850 RMSE currently have incoming .stat feeds.
+  // Other metrics remain selectable as N/A, never backfilled with synthetic values.
   metrics: {
     T2M_RMSE: { variable:'T2M', metricType:'RMSE', label:'2m Temperature RMSE', short:'T2m RMSE', direction:'lower', unit:' K', decimals:2, aggregation:'rms', scorecard:{ poor:2.90, neutral:1.85, good:0.85 } },
     T2M_BIAS: { variable:'T2M', metricType:'Bias', label:'2m Temperature Bias', short:'T2m Bias', direction:'target', target:0, unit:' K', decimals:2, aggregation:'mean', scorecard:{ poorDeviation:1.40, neutralDeviation:0.65, goodDeviation:0.15 } },
@@ -48,7 +51,9 @@ export const CONFIG = {
     PRECIP24_ETS: { variable:'PRECIP24', metricType:'ETS', label:'24h Precipitation ETS', short:'24h QPF ETS', direction:'higher', unit:'', decimals:3, aggregation:'mean', scorecard:{ poor:0.12, neutral:0.28, good:0.48 } }
   },
 
-  homeMetrics: ['H500_ACC','T850_RMSE','T2M_RMSE','MSLP_RMSE','WIND10_RMSE','PRECIP24_ETS'],
+  sourceMetrics: ['H500_ACC','T850_RMSE','MSLP_RMSE'],
+
+  homeMetrics: ['H500_ACC','T850_RMSE','MSLP_RMSE','T2M_RMSE','WIND10_RMSE','PRECIP24_ETS'],
   scorecardGroups: [
     { title:'500-hPa Height', metrics:['H500_ACC','H500_RMSE','H500_BIAS'] },
     { title:'850-hPa Temperature', metrics:['T850_RMSE','T850_BIAS'] },

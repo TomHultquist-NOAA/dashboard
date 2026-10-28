@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id);
 const MODELS=Object.keys(CONFIG.modelMeta);
 const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:NaN;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const fmtPct=v=>Number.isFinite(v)?`${v>0?'+':''}${v.toFixed(1)}%`:'—';
+const fmtPct=v=>Number.isFinite(v)?`${v>0?'+':''}${v.toFixed(1)}%`:'N/A';
 const leadLabel=h=>`D${Number(h)/24}`;
 const dateShort=ms=>new Date(ms).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
 const dateFull=ms=>new Date(ms).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
@@ -15,15 +15,15 @@ const iso=d=>new Date(d).toISOString().slice(0,10);
 
 const state={
   route:'home',
-  home:{modelGroup:'Global',region:CONFIG.defaultRegion,period:'30',customStart:null,customEnd:null,baseline:'GFS',primaryMetric:'H500_ACC',forecastLead:'all'},
-  skill:{variable:'H500',metric:'H500_ACC',region:CONFIG.defaultRegion,baseline:'GFS',period:'30',customStart:null,customEnd:null,models:[...MODELS]},
-  score:{region:CONFIG.defaultRegion,baseline:'GFS',period:'30',customStart:null,customEnd:null},
+  home:{modelGroup:'Global',region:CONFIG.defaultRegion,period:'30',customStart:null,customEnd:null,baseline:'GFS',primaryMetric:'H500_ACC',forecastLead:120,comparisonMode:'date_lead'},
+  skill:{variable:'H500',metric:'H500_ACC',region:CONFIG.defaultRegion,baseline:'GFS',period:'30',customStart:null,customEnd:null,comparisonMode:'date_lead',models:[...MODELS]},
+  score:{region:CONFIG.defaultRegion,baseline:'GFS',period:'30',customStart:null,customEnd:null,comparisonMode:'date_lead'},
   ts:{variable:'H500',metric:'H500_ACC',region:CONFIG.defaultRegion,lead:120,period:'30',customStart:null,customEnd:null,models:[...MODELS]}
 };
 
 function currentTheme(){return document.documentElement.dataset.theme==='light'?'light':'dark'}
 function modelColor(model){const m=CONFIG.modelMeta[model];return currentTheme()==='light'?(m.lightColor||m.color):m.color}
-function metricFmt(metricKey,value){const m=CONFIG.metrics[metricKey];return Number.isFinite(value)?`${value.toFixed(m.decimals)}${m.unit}`:'—'}
+function metricFmt(metricKey,value){const m=CONFIG.metrics[metricKey];return Number.isFinite(value)?`${value.toFixed(m.decimals)}${m.unit}`:'N/A'}
 function metricAxisLabel(metricKey){
   const m=CONFIG.metrics[metricKey],unit=(m.unit||'').trim();
   return unit?`${m.metricType} (${unit})`:m.metricType;
@@ -33,6 +33,39 @@ function metricDirectionText(m){return m.direction==='lower'?'Lower is better.':
 function variableForMetric(k){return CONFIG.variables[CONFIG.metrics[k].variable]}
 function options(el,values,label=v=>v,value=v=>v){el.innerHTML=values.map(v=>`<option value="${value(v)}">${label(v)}</option>`).join('')}
 
+// Keep unavailable metrics visible but greyed out in native dropdown menus.
+// The archive for the selected region decides availability, not a hardcoded
+// metric list or the current date/lead selection.
+function isMetricAvailable(metric,region){
+  return data.isRegionLoaded(region)
+    ? data.hasMetricData(region,metric)
+    : CONFIG.sourceMetrics.includes(metric); // temporary while the region loads
+}
+function availableOptions(el,values,label,isEnabled,selection){
+  el.replaceChildren();
+  const available=values.filter(isEnabled);
+  if(!available.length){
+    const placeholder=document.createElement('option');
+    placeholder.value='';placeholder.textContent='No data available — N/A';
+    placeholder.disabled=true;el.appendChild(placeholder);
+  }
+  for(const value of values){
+    const option=document.createElement('option');
+    option.value=value;
+    option.textContent=label(value)+(isEnabled(value)?'':' — N/A');
+    option.disabled=!isEnabled(value);
+    if(option.disabled)option.title='Verification data not yet available';
+    el.appendChild(option);
+  }
+  el.value=available.length?(available.includes(selection)?selection:available[0]):'';
+  return available.length?el.value:null;
+}
+function populateHomeMetric(){
+  const s=state.home;
+  const selected=availableOptions($('home-primary-metric-filter'),metricKeys(),
+    k=>CONFIG.metrics[k].label,k=>isMetricAvailable(k,s.region),s.primaryMetric);
+  if(selected)s.primaryMetric=selected;
+}
 function periodOptions(el){
   el.innerHTML=CONFIG.periods.map(d=>`<option value="${d}">Last ${d} Days</option>`).join('')+`<option value="custom">Custom Range…</option>`;
 }
@@ -49,14 +82,15 @@ function setCustomVisible(prefix,s){
   $(`${prefix}-end-wrap`)?.classList.toggle('hidden',s.period!=='custom');
 }
 function syncDateLimits(){
-  if(!data.latestDate||!data.earliestDate)return;
-  const min=iso(data.earliestDate),max=iso(data.latestDate);
+  const yesterday=new Date();yesterday.setUTCHours(0,0,0,0);yesterday.setUTCDate(yesterday.getUTCDate()-1);
+  const latest=data.latestDate||yesterday,earliest=data.earliestDate||new Date(latest.getTime()-89*86400000);
+  const min=iso(earliest),max=iso(latest);
   for(const prefix of ['home','skill','score','ts']){
     const s=state[prefix==='score'?'score':prefix];
     const start=$(`${prefix}-start-date`),end=$(`${prefix}-end-date`);if(!start||!end)continue;
     start.min=min;start.max=max;end.min=min;end.max=max;
-    if(!s.customEnd)s.customEnd=max;
-    if(!s.customStart){const d=new Date(data.latestDate);d.setUTCDate(d.getUTCDate()-29);s.customStart=iso(d)}
+    if(!s.customEnd || s.customEnd>max)s.customEnd=max;
+    if(!s.customStart){const d=new Date(latest);d.setUTCDate(d.getUTCDate()-29);s.customStart=iso(d)}
     start.value=s.customStart;end.value=s.customEnd;
   }
 }
@@ -72,7 +106,7 @@ function handleCustomDates(prefix,s,callback){
 }
 
 function updateDataStatus(){
-  if(!data.latestDate)return;
+  if(!data.latestDate){$('data-status').textContent='EVS data unavailable — N/A';document.querySelector('.status-dot')?.classList.remove('ok');return;}
   $('data-status').textContent=`Data through ${dateFull(data.latestDate.getTime())} · ${data.loadedRegions.size} region${data.loadedRegions.size===1?'':'s'} loaded`;
   const footerDate=$('footer-verification-date');if(footerDate){footerDate.textContent=dateFull(data.latestDate.getTime());footerDate.dateTime=iso(data.latestDate)}
 }
@@ -84,7 +118,7 @@ function ensureRegionReady(region,callback){
 }
 
 function initTheme(){
-  const apply=()=>{const target=currentTheme()==='dark'?'light':'dark';$('theme-toggle-label').textContent=target==='light'?'Light':'Dark';$('theme-toggle').title=`Switch to ${target} mode`;$('theme-toggle').setAttribute('aria-label',`Switch to ${target} mode`)};
+  const apply=()=>{const target=currentTheme()==='dark'?'light':'dark';$('theme-toggle').title=`Switch to ${target} mode`;$('theme-toggle').setAttribute('aria-label',`Switch to ${target} mode`)};
   apply();$('theme-toggle').onclick=()=>{document.documentElement.dataset.theme=currentTheme()==='dark'?'light':'dark';localStorage.setItem('omd-dashboard-theme',currentTheme());apply();renderCurrent()};
 }
 function initNavigation(){
@@ -131,31 +165,68 @@ function heatColor(grade){
 function heatText(grade){return Math.abs(grade)>.58?'#fff':currentTheme()==='light'?'#142033':'#f3f7fd'}
 
 function populateVariableMetric(variableId,metricId,stateObj){
-  const vars=variableKeys();options($(variableId),vars,v=>CONFIG.variables[v].label);if(!vars.includes(stateObj.variable))stateObj.variable=vars[0];$(variableId).value=stateObj.variable;
-  const mets=metricsForVariable(stateObj.variable);options($(metricId),mets,k=>CONFIG.metrics[k].label);if(!mets.includes(stateObj.metric))stateObj.metric=mets[0];$(metricId).value=stateObj.metric;
+  const available=k=>isMetricAvailable(k,stateObj.region);
+  const vars=variableKeys();
+  const selectedVariable=availableOptions($(variableId),vars,
+    v=>CONFIG.variables[v].label,v=>metricsForVariable(v).some(available),stateObj.variable);
+  if(selectedVariable)stateObj.variable=selectedVariable;
+  // With an empty data archive, retain a valid internal metric for N/A chart
+  // rendering while presenting a disabled "No data available" placeholder.
+  const metrics=metricsForVariable(stateObj.variable);
+  const selectedMetric=availableOptions($(metricId),metrics,
+    k=>CONFIG.metrics[k].label,available,stateObj.metric);
+  if(selectedMetric)stateObj.metric=selectedMetric;
 }
 
 function initHomeControls(){
   options($('home-model-group-filter'),['Global']);
-  options($('home-region-filter'),CONFIG.regions);periodOptions($('home-period-filter'));options($('home-baseline-filter'),MODELS);options($('home-primary-metric-filter'),metricKeys(),k=>CONFIG.metrics[k].label);options($('home-lead-filter'),['all',...CONFIG.leads],v=>v==='all'?'All':`${leadLabel(v)} (${v} h)`);
+  options($('home-region-filter'),CONFIG.regions);periodOptions($('home-period-filter'));options($('home-baseline-filter'),MODELS);populateHomeMetric();options($('home-lead-filter'),['all',...CONFIG.leads],v=>v==='all'?'All':`${leadLabel(v)} (${v} h)`);
   const bind=()=>{const s=state.home;$('home-model-group-filter').value='Global';$('home-region-filter').value=s.region;$('home-period-filter').value=s.period;$('home-baseline-filter').value=s.baseline;$('home-primary-metric-filter').value=s.primaryMetric;$('home-lead-filter').value=s.forecastLead;setCustomVisible('home',s)};bind();
   $('home-model-group-filter').onchange=()=>{state.home.modelGroup='Global';renderHome()};
   $('home-region-filter').onchange=e=>{state.home.region=e.target.value;renderHome()};$('home-period-filter').onchange=e=>{state.home.period=e.target.value;setCustomVisible('home',state.home);renderHome()};$('home-baseline-filter').onchange=e=>{state.home.baseline=e.target.value;renderHome()};$('home-primary-metric-filter').onchange=e=>{state.home.primaryMetric=e.target.value;renderHome()};$('home-lead-filter').onchange=e=>{state.home.forecastLead=e.target.value==='all'?'all':Number(e.target.value);renderHome()};handleCustomDates('home',state.home,renderHome);
-  $('reset-btn').onclick=()=>{Object.assign(state.home,{modelGroup:'Global',region:CONFIG.defaultRegion,period:'30',baseline:'GFS',primaryMetric:'H500_ACC',forecastLead:'all'});bind();renderHome()};
+  $('reset-btn').onclick=()=>{Object.assign(state.home,{modelGroup:'Global',region:CONFIG.defaultRegion,period:'30',baseline:'GFS',primaryMetric:'H500_ACC',forecastLead:120,comparisonMode:'date_lead'});bind();renderHome()};
 }
 
 function initDetailControls(){
   // Skill
-  populateVariableMetric('skill-variable-filter','skill-metric-filter',state.skill);options($('skill-region-filter'),CONFIG.regions);options($('skill-baseline-filter'),MODELS);periodOptions($('skill-period-filter'));
-  $('skill-region-filter').value=state.skill.region;$('skill-baseline-filter').value=state.skill.baseline;$('skill-period-filter').value=state.skill.period;
-  $('skill-variable-filter').onchange=e=>{state.skill.variable=e.target.value;state.skill.metric=metricsForVariable(state.skill.variable)[0];renderSkill()};$('skill-metric-filter').onchange=e=>{state.skill.metric=e.target.value;renderSkill()};$('skill-region-filter').onchange=e=>{state.skill.region=e.target.value;renderSkill()};$('skill-baseline-filter').onchange=e=>{state.skill.baseline=e.target.value;renderSkill()};$('skill-period-filter').onchange=e=>{state.skill.period=e.target.value;setCustomVisible('skill',state.skill);renderSkill()};handleCustomDates('skill',state.skill,renderSkill);$('skill-select-all').onclick=()=>{state.skill.models=[...MODELS];renderSkill()};$('skill-clear-all').onclick=()=>{state.skill.models=[];renderSkill()};
+  populateVariableMetric('skill-variable-filter','skill-metric-filter',state.skill);options($('skill-region-filter'),CONFIG.regions);options($('skill-baseline-filter'),MODELS);initComparisonOptions('skill');periodOptions($('skill-period-filter'));
+  $('skill-region-filter').value=state.skill.region;$('skill-baseline-filter').value=state.skill.baseline;$('skill-comparison-filter').value=state.skill.comparisonMode;$('skill-period-filter').value=state.skill.period;
+  $('skill-variable-filter').onchange=e=>{state.skill.variable=e.target.value;state.skill.metric=metricsForVariable(state.skill.variable).find(k=>isMetricAvailable(k,state.skill.region))||metricsForVariable(state.skill.variable)[0];renderSkill()};$('skill-metric-filter').onchange=e=>{state.skill.metric=e.target.value;renderSkill()};$('skill-region-filter').onchange=e=>{state.skill.region=e.target.value;renderSkill()};$('skill-baseline-filter').onchange=e=>{state.skill.baseline=e.target.value;renderSkill()};$('skill-comparison-filter').onchange=e=>{state.skill.comparisonMode=e.target.value;renderSkill()};$('skill-period-filter').onchange=e=>{state.skill.period=e.target.value;setCustomVisible('skill',state.skill);renderSkill()};handleCustomDates('skill',state.skill,renderSkill);$('skill-select-all').onclick=()=>{state.skill.models=[...MODELS];renderSkill()};$('skill-clear-all').onclick=()=>{state.skill.models=[];renderSkill()};
   // Scorecard
-  options($('score-region-filter'),CONFIG.regions);options($('score-baseline-filter'),MODELS);periodOptions($('score-period-filter'));$('score-region-filter').value=state.score.region;$('score-baseline-filter').value=state.score.baseline;$('score-period-filter').value=state.score.period;$('score-region-filter').onchange=e=>{state.score.region=e.target.value;renderScorecardPage()};$('score-baseline-filter').onchange=e=>{state.score.baseline=e.target.value;renderScorecardPage()};$('score-period-filter').onchange=e=>{state.score.period=e.target.value;setCustomVisible('score',state.score);renderScorecardPage()};handleCustomDates('score',state.score,renderScorecardPage);
+  options($('score-region-filter'),CONFIG.regions);options($('score-baseline-filter'),MODELS);initComparisonOptions('score');periodOptions($('score-period-filter'));$('score-region-filter').value=state.score.region;$('score-baseline-filter').value=state.score.baseline;$('score-comparison-filter').value=state.score.comparisonMode;$('score-period-filter').value=state.score.period;$('score-region-filter').onchange=e=>{state.score.region=e.target.value;renderScorecardPage()};$('score-baseline-filter').onchange=e=>{state.score.baseline=e.target.value;renderScorecardPage()};$('score-comparison-filter').onchange=e=>{state.score.comparisonMode=e.target.value;renderScorecardPage()};$('score-period-filter').onchange=e=>{state.score.period=e.target.value;setCustomVisible('score',state.score);renderScorecardPage()};handleCustomDates('score',state.score,renderScorecardPage);
   // Time series
   populateVariableMetric('ts-variable-filter','ts-metric-filter',state.ts);options($('ts-region-filter'),CONFIG.regions);options($('ts-lead-filter'),['all',...CONFIG.leads],v=>v==='all'?'All Forecast Leads':`${leadLabel(v)} (${v} h)`);periodOptions($('ts-period-filter'));$('ts-region-filter').value=state.ts.region;$('ts-lead-filter').value=state.ts.lead;$('ts-period-filter').value=state.ts.period;
-  $('ts-variable-filter').onchange=e=>{state.ts.variable=e.target.value;state.ts.metric=metricsForVariable(state.ts.variable)[0];renderTimeSeries()};$('ts-metric-filter').onchange=e=>{state.ts.metric=e.target.value;renderTimeSeries()};$('ts-region-filter').onchange=e=>{state.ts.region=e.target.value;renderTimeSeries()};$('ts-lead-filter').onchange=e=>{state.ts.lead=e.target.value==='all'?'all':Number(e.target.value);renderTimeSeries()};$('ts-period-filter').onchange=e=>{state.ts.period=e.target.value;setCustomVisible('ts',state.ts);renderTimeSeries()};handleCustomDates('ts',state.ts,renderTimeSeries);$('ts-select-all').onclick=()=>{state.ts.models=[...MODELS];renderTimeSeries()};$('ts-clear-all').onclick=()=>{state.ts.models=[];renderTimeSeries()};
+  $('ts-variable-filter').onchange=e=>{state.ts.variable=e.target.value;state.ts.metric=metricsForVariable(state.ts.variable).find(k=>isMetricAvailable(k,state.ts.region))||metricsForVariable(state.ts.variable)[0];renderTimeSeries()};$('ts-metric-filter').onchange=e=>{state.ts.metric=e.target.value;renderTimeSeries()};$('ts-region-filter').onchange=e=>{state.ts.region=e.target.value;renderTimeSeries()};$('ts-lead-filter').onchange=e=>{state.ts.lead=e.target.value==='all'?'all':Number(e.target.value);renderTimeSeries()};$('ts-period-filter').onchange=e=>{state.ts.period=e.target.value;setCustomVisible('ts',state.ts);renderTimeSeries()};handleCustomDates('ts',state.ts,renderTimeSeries);$('ts-select-all').onclick=()=>{state.ts.models=[...MODELS];renderTimeSeries()};$('ts-clear-all').onclick=()=>{state.ts.models=[];renderTimeSeries()};
 }
 
+function initComparisonOptions(prefix){
+  const select=$(`${prefix}-comparison-filter`);
+  options(select,['date_lead','same_source'],v=>v==='date_lead'?'Standard — matched dates & leads':'Strict — same verification dataset');
+}
+function comparisonCoverageHtml(rows,mode,baseline,lead){
+  const available=rows.filter(r=>r.records>0).length;
+  const rowHtml=rows.map(r=>{
+    const matched=(r.model===baseline?r.records:r.matchedPairs);
+    return `<tr><th><span class="coverage-model-dot" style="background:${modelColor(r.model)}"></span>${r.model}</th><td>${r.dates}</td><td>${r.records}</td><td>${r.maxLead==null?'N/A':`D${r.maxLead/24}`}</td><td>${matched||'N/A'}</td></tr>`;
+  }).join('');
+  const leadInfo=lead==null?'Maximum forecast lead varies by model.':`Selected forecast lead: D${lead/24}.`;
+  return {summary:`${available} of ${rows.length} models have data`,
+    html:`<p class="coverage-description">${leadInfo} Only existing observations are shown.</p><div class="coverage-scroll"><table class="coverage-table"><thead><tr><th>Model</th><th>Dates</th><th>Values</th><th>Max lead</th><th>Compared values</th></tr></thead><tbody>${rowHtml}</tbody></table></div><p class="coverage-description muted">N/A indicates that verification data or a matching baseline value is unavailable.</p>`};
+}
+function renderComparisonCoverage(prefix,{metric,region,baseline,lead=null,comparisonMode='date_lead',...window}){
+  const rows=data.coverageByModel({metric,region,baseline,lead,comparisonMode,models:MODELS,...window});
+  const panel=comparisonCoverageHtml(rows,comparisonMode,baseline,lead);
+  $(`${prefix}-coverage-summary`).textContent=panel.summary;
+  $(`${prefix}-coverage-table`).innerHTML=panel.html;
+  const status=$(`${prefix}-comparison-warning`);
+  if(!status)return;
+  const differs=rows.some(r=>r.differingSources||r.unknownSources);
+  status.textContent=comparisonMode==='same_source'
+    ?'Strict comparison: only scores verified against the same dataset are included.'
+    :differs?'Standard comparison: scores are matched by date and lead. Verifying datasets may differ between models.'
+    :'Standard comparison: scores are matched by date and lead.';
+  status.classList.toggle('comparison-warning',comparisonMode==='date_lead'&&differs);
+}
 function homeCoreMetrics(){return CONFIG.homeMetrics}
 function metricRankValue(value,metricKey){
   const m=CONFIG.metrics[metricKey];if(!Number.isFinite(value))return Infinity;
@@ -164,19 +235,21 @@ function metricRankValue(value,metricKey){
   return Math.abs(value-(m.target??0));
 }
 function renderHome(){
-  const s=state.home;if(!ensureRegionReady(s.region,renderHome))return;const w=rangeArgs(s),vis=MODELS;
+  const s=state.home;if(!ensureRegionReady(s.region,renderHome))return;populateHomeMetric();const w=rangeArgs(s),vis=MODELS;
   renderHomePerformance(vis,w);renderHomeScorecard(vis,w);renderSignals(vis);renderCategorySummary(vis,w);
 }
 function renderHomePerformance(vis,w){
   const s=state.home,metric=s.primaryMetric,m=CONFIG.metrics[metric],v=variableForMetric(metric),lead=s.forecastLead==='all'?null:s.forecastLead;
   // Overall ranking uses the aggregate verification score across the selected period/lead.
   const rank=vis.map(model=>({model,value:data.aggregateValue({...w,region:s.region,models:[model],metrics:[metric],leads:lead==null?null:[lead]})})).sort((a,b)=>metricRankValue(a.value,metric)-metricRankValue(b.value,metric));
+  const rankableCount=rank.filter(r=>Number.isFinite(r.value)).length;
   const leadText=lead==null?'all forecast leads':`${leadLabel(lead)} (${lead} h)`;
   $('home-performance-title').textContent=`${v.label} — ${m.metricType} Rank History`;
-  $('home-performance-subtitle').textContent=`Daily model rank for ${s.region} · ${rangeLabel(s)} · ${leadText} · verified against ${v.obsSource}. Rank 1 is best; the left list is the overall period ranking.`;
+  $('home-performance-subtitle').textContent=`Daily model rank for ${s.region} · ${rangeLabel(s)} · ${leadText}. Rank 1 is best; the left list is the overall period ranking. Baseline does not affect ranks.`;
   $('home-ranking-metric').textContent=`Overall ${m.metricType}`;
   const list=$('home-ranking-list');
-  list.innerHTML=rank.map((r,i)=>`<button class="home-rank-row" type="button" data-model="${r.model}" style="--rank-color:${modelColor(r.model)}"><span class="rank-number">${i+1}</span><span class="rank-model"><i style="background:${modelColor(r.model)}"></i>${r.model}</span><strong>${metricFmt(metric,r.value)}</strong></button>`).join('');
+  let rankPosition=0;
+  list.innerHTML=rank.map(r=>`<button class="home-rank-row" type="button" data-model="${r.model}" style="--rank-color:${modelColor(r.model)}"><span class="rank-number">${Number.isFinite(r.value)&&rankableCount>1?++rankPosition:'N/A'}</span><span class="rank-model"><i style="background:${modelColor(r.model)}"></i>${r.model}</span><strong>${metricFmt(metric,r.value)}</strong></button>`).join('');
 
   // Build one absolute daily series per model, then rank models independently at each valid date.
   const valuesByModel=new Map(),dateSet=new Set();
@@ -190,12 +263,13 @@ function renderHomePerformance(vis,w){
   for(const x of dates){
     const entries=vis.map(model=>({model,value:valuesByModel.get(model)?.get(x)})).filter(d=>Number.isFinite(d.value));
     entries.sort((a,b)=>metricRankValue(a.value,metric)-metricRankValue(b.value,metric));
+    if(entries.length<2)continue; // do not claim a rank when only one model has data
     entries.forEach((entry,index)=>rankSeries.get(entry.model).push({x,y:index+1,label:dateFull(x)}));
   }
   const series=vis.map(model=>({name:model,color:modelColor(model),data:rankSeries.get(model)}));
   const chart=$('home-performance-chart');
   const setRankHighlight=name=>{list.querySelectorAll('.home-rank-row').forEach(row=>row.classList.toggle('highlighted',!!name&&row.dataset.model===name));list.classList.toggle('has-highlight',!!name)};
-  renderLineChart(chart,series,{formatX:dateShort,formatY:y=>String(Math.round(y)),formatTooltipY:y=>`Rank ${Math.round(y)}`,ySuffix:'',zeroLine:false,tooltipTitle:`${m.short} rank`,emptyMessage:'No ranking data for this selection.',onSeriesHover:setRankHighlight,showLegend:false,xAxisLabel:'Date',yAxisLabel:'Model Rank (1 = Best)',yDomain:[1,vis.length],yTickValues:vis.map((_,i)=>i+1),reverseY:true,interactive:true,exportName:`model-rank-history_${metric}_${s.region}.png`,exportTitle:`Model Rank History — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${rangeLabel(s)} · ${leadText}`});
+  renderLineChart(chart,series,{formatX:dateShort,formatY:y=>String(Math.round(y)),formatTooltipY:y=>`Rank ${Math.round(y)}`,ySuffix:'',zeroLine:false,tooltipTitle:`${m.short} rank`,emptyMessage:'N/A — no verification data for the selected metric, region, dates and forecast lead.',onSeriesHover:setRankHighlight,showLegend:false,maxSegmentGap:1.5*86400000,xAxisLabel:'Date',yAxisLabel:'Model Rank (1 = Best)',yDomain:[1,vis.length],yTickValues:vis.map((_,i)=>i+1),reverseY:true,interactive:true,exportName:`model-rank-history_${metric}_${s.region}.png`,exportTitle:`Model Rank History — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${rangeLabel(s)} · ${leadText}`});
   list.querySelectorAll('.home-rank-row').forEach(row=>{row.addEventListener('mouseenter',()=>{setRankHighlight(row.dataset.model);chart._chartSetHighlight?.(row.dataset.model)});row.addEventListener('mouseleave',()=>{setRankHighlight(null);chart._chartSetHighlight?.(null)});row.addEventListener('focus',()=>{setRankHighlight(row.dataset.model);chart._chartSetHighlight?.(row.dataset.model)});row.addEventListener('blur',()=>{setRankHighlight(null);chart._chartSetHighlight?.(null)})});
 }
 
@@ -204,45 +278,47 @@ function renderHomeScorecard(vis,w){
   const rows=homeCoreMetrics().map(k=>{
     const m=CONFIG.metrics[k],v=variableForMetric(k);
     const cells=vis.map(model=>{
-      const skill=data.skillFor({...w,model,baseline:state.home.baseline,metric:k,region:state.home.region,leads:lead==null?null:[lead]});
+      const skill=data.skillFor({...w,model,baseline:state.home.baseline,metric:k,region:state.home.region,leads:lead==null?null:[lead],comparisonMode:state.home.comparisonMode});
       const g=skillGrade(skill);
-      return `<td><span class="heat" style="background:${heatColor(g)};color:${heatText(g)}" title="${m.label} · relative to ${state.home.baseline}">${fmtPct(skill)}</span></td>`;
+      return Number.isFinite(skill)?`<td><span class="heat" style="background:${heatColor(g)};color:${heatText(g)}" title="${m.label} · relative to ${state.home.baseline}">${fmtPct(skill)}</span></td>`:`<td><span class="heat missing-score" title="No available matched verification data">N/A</span></td>`;
     }).join('');
-    return `<tr><td><span class="metric-name">${m.short}</span><span class="metric-meta">vs ${state.home.baseline} · ${v.obsSource}</span></td>${cells}</tr>`;
+    return `<tr><td><span class="metric-name">${m.short}</span><span class="metric-meta">${CONFIG.sourceMetrics.includes(k)?`vs ${state.home.baseline}`:'Not yet available · N/A'}</span></td>${cells}</tr>`;
   }).join('');
   $('home-scorecard-table').innerHTML=`<thead><tr><th>Metric</th>${vis.map(m=>`<th>${m}</th>`).join('')}</tr></thead><tbody>${rows}</tbody>`;
 }
 function renderSignals(vis){
   const candidates=[];for(const model of vis)for(const metric of homeCoreMetrics()){const change=data.periodChange({model,metric,region:state.home.region,days:15});if(Number.isFinite(change)){const raw=data.aggregateValue({days:15,region:state.home.region,models:[model],metrics:[metric]});candidates.push({model,metric,change,raw})}}
-  candidates.sort((a,b)=>Math.abs(b.change)-Math.abs(a.change));$('signals-list').innerHTML=candidates.slice(0,6).map(s=>{const good=s.change>=0,m=CONFIG.metrics[s.metric];return `<div class="signal"><div class="signal-icon ${good?'good':'bad'}">${good?'▲':'▼'}</div><div><div class="signal-title">${s.model} · ${m.short}</div><div class="signal-desc">${good?'Improved':'Degraded'} ${Math.abs(s.change).toFixed(1)}% versus the preceding 15-day window.</div></div><div class="raw-value">${metricFmt(s.metric,s.raw)}</div></div>`}).join('');
+  candidates.sort((a,b)=>Math.abs(b.change)-Math.abs(a.change));$('signals-list').innerHTML=candidates.length?candidates.slice(0,6).map(s=>{const good=s.change>=0,m=CONFIG.metrics[s.metric];return `<div class="signal"><div class="signal-icon ${good?'good':'bad'}">${good?'▲':'▼'}</div><div><div class="signal-title">${s.model} · ${m.short}</div><div class="signal-desc">${good?'Improved':'Degraded'} ${Math.abs(s.change).toFixed(1)}% versus the preceding 15-day window.</div></div><div class="raw-value">${metricFmt(s.metric,s.raw)}</div></div>`}).join(''):'<div class="empty">N/A — insufficient recent observations to assess changes.</div>';
 }
 function renderCategorySummary(vis,w){
-  const cats=['Surface','Upper Air','Precipitation'];$('category-summary').innerHTML=cats.map(cat=>{const mets=homeCoreMetrics().filter(k=>variableForMetric(k).category===cat),scores=[];for(const model of vis)for(const metric of mets){const s=data.skillFor({...w,model,baseline:state.home.baseline,metric,region:state.home.region});if(Number.isFinite(s))scores.push(s)}const leader=vis.map(model=>({model,s:avg(mets.map(metric=>data.skillFor({...w,model,baseline:state.home.baseline,metric,region:state.home.region})).filter(Number.isFinite))})).sort((a,b)=>b.s-a.s)[0];return `<div class="category-card"><div class="category-title">${cat}</div><div class="category-value">${fmtPct(avg(scores))}</div><div class="category-detail">Leader: ${leader?.model||'—'} · ${fmtPct(leader?.s)}</div></div>`}).join('');
+  const cats=['Surface','Upper Air','Precipitation'];$('category-summary').innerHTML=cats.map(cat=>{const mets=homeCoreMetrics().filter(k=>variableForMetric(k).category===cat),scores=[];for(const model of vis)for(const metric of mets){const s=data.skillFor({...w,model,baseline:state.home.baseline,metric,region:state.home.region,comparisonMode:state.home.comparisonMode});if(Number.isFinite(s))scores.push(s)}const leader=vis.map(model=>({model,s:avg(mets.map(metric=>data.skillFor({...w,model,baseline:state.home.baseline,metric,region:state.home.region,comparisonMode:state.home.comparisonMode})).filter(Number.isFinite))})).filter(x=>Number.isFinite(x.s)).sort((a,b)=>b.s-a.s)[0];return `<div class="category-card"><div class="category-title">${cat}</div><div class="category-value">${fmtPct(avg(scores))}</div><div class="category-detail">Leader: ${leader?.model||'N/A'} · ${fmtPct(leader?.s)}</div></div>`}).join('');
 }
 function renderSkill(){
-  const s=state.skill;if(!ensureRegionReady(s.region,renderSkill))return;populateVariableMetric('skill-variable-filter','skill-metric-filter',s);$('skill-region-filter').value=s.region;$('skill-baseline-filter').value=s.baseline;$('skill-period-filter').value=s.period;setCustomVisible('skill',s);renderChips('skill-model-chips',MODELS,s.models,next=>{s.models=next;renderSkill()});
+  const s=state.skill;if(!ensureRegionReady(s.region,renderSkill))return;populateVariableMetric('skill-variable-filter','skill-metric-filter',s);$('skill-region-filter').value=s.region;$('skill-baseline-filter').value=s.baseline;$('skill-comparison-filter').value=s.comparisonMode;$('skill-period-filter').value=s.period;setCustomVisible('skill',s);renderChips('skill-model-chips',MODELS,s.models,next=>{s.models=next;renderSkill()});
   const m=CONFIG.metrics[s.metric],v=variableForMetric(s.metric),w=rangeArgs(s);$('skill-chart-title').textContent=`${v.label} — ${m.metricType}`;$('skill-chart-subtitle').textContent=`${s.region} · percent improvement versus ${s.baseline} · ${rangeLabel(s)}`;
-  const series=s.models.map(model=>({name:model,color:modelColor(model),data:data.skillByLead({...w,model,baseline:s.baseline,metric:s.metric,region:s.region}).map(d=>({x:d.lead/24,y:d.value,label:`Day ${Number(d.lead/24).toFixed(Number.isInteger(d.lead/24)?0:1)} · ${d.lead} h`}))}));
-  renderLineChart($('skill-chart'),series,{formatX:x=>String(Math.round(x)),xDomain:[0,15],xTickValues:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],xAxisLabel:'Forecast Lead Time (Days)',yAxisLabel:`Skill vs ${s.baseline} (%)`,ySuffix:'%',zeroLine:true,tooltipTitle:m.short,emptyMessage:'No models selected. Choose any number of models above.',interactive:true,exportName:`skill-vs-lead_${s.metric}_${s.region}.png`,exportTitle:`Skill vs Forecast Lead — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${rangeLabel(s)} · Baseline: ${s.baseline}`});
-  $('skill-verification-note').innerHTML=`<strong>Verification:</strong> ${v.obsSource} · ${v.level}. ${metricDirectionText(m)} Skill is expressed relative to ${s.baseline}.`;
+  const series=s.models.map(model=>({name:model,color:modelColor(model),data:data.skillByLead({...w,model,baseline:s.baseline,metric:s.metric,region:s.region,comparisonMode:s.comparisonMode}).map(d=>({x:d.lead/24,y:d.value,label:`Day ${Number(d.lead/24).toFixed(Number.isInteger(d.lead/24)?0:1)} · ${d.lead} h`}))}));
+  renderLineChart($('skill-chart'),series,{formatX:x=>String(Math.round(x)),xDomain:[0,15],xTickValues:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],xAxisLabel:'Forecast Lead Time (Days)',yAxisLabel:`Skill vs ${s.baseline} (%)`,ySuffix:'%',zeroLine:true,tooltipTitle:m.short,emptyMessage:'N/A — choose models or select a metric with available verification data.',interactive:true,exportName:`skill-vs-lead_${s.metric}_${s.region}.png`,exportTitle:`Skill vs Forecast Lead — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${rangeLabel(s)} · Baseline: ${s.baseline}`});
+  $('skill-verification-note').textContent=`${metricDirectionText(m)} Positive skill means improvement relative to ${s.baseline}.`;
+  renderComparisonCoverage('skill',{...w,region:s.region,metric:s.metric,baseline:s.baseline,comparisonMode:s.comparisonMode});
 }
 
 function renderScorecardPage(){
   const s=state.score;if(!ensureRegionReady(s.region,renderScorecardPage))return;
-  $('score-region-filter').value=s.region;$('score-baseline-filter').value=s.baseline;$('score-period-filter').value=s.period;setCustomVisible('score',s);
+  $('score-region-filter').value=s.region;$('score-baseline-filter').value=s.baseline;$('score-comparison-filter').value=s.comparisonMode;$('score-period-filter').value=s.period;setCustomVisible('score',s);
   const w=rangeArgs(s);$('scorecard-context').textContent=`${s.region} · ${rangeLabel(s)} · relative to ${s.baseline}`;
+  $('score-comparison-note').textContent=s.comparisonMode==='same_source'?'Strict comparison: only scores verified against the same dataset are included.':'Standard comparison: scores are matched by verification date and forecast lead.';
   $('scorecard-sections').innerHTML=CONFIG.scorecardGroups.map(group=>{
     const metricBlocks=group.metrics.map(k=>{
       const m=CONFIG.metrics[k],v=variableForMetric(k);
       const rows=MODELS.map(model=>{
         const cells=CONFIG.scorecardLeads.map(lead=>{
-          const skill=data.skillFor({...w,model,baseline:s.baseline,metric:k,region:s.region,leads:[lead]});
+          const skill=data.skillFor({...w,model,baseline:s.baseline,metric:k,region:s.region,leads:[lead],comparisonMode:s.comparisonMode});
           const g=skillGrade(skill);
-          return `<td><span class="scorecell" style="background:${heatColor(g)};color:${heatText(g)}" title="${m.label} · ${leadLabel(lead)} · relative to ${s.baseline}">${fmtPct(skill)}</span></td>`;
+          return Number.isFinite(skill)?`<td><span class="scorecell" style="background:${heatColor(g)};color:${heatText(g)}" title="${m.label} · ${leadLabel(lead)} · relative to ${s.baseline}">${fmtPct(skill)}</span></td>`:`<td><span class="scorecell missing-score" title="No available matched verification data">N/A</span></td>`;
         }).join('');
         return `<tr><th class="mini-model"><span class="chip-dot" style="background:${modelColor(model)}"></span>${model}</th>${cells}</tr>`;
       }).join('');
-      return `<section class="metric-block"><div class="metric-block-head"><div><strong>${m.metricType}</strong><span>${v.obsSource}</span></div><small>Percent improvement vs ${s.baseline}</small></div><div class="mini-score-wrap"><table class="mini-score-table"><thead><tr><th>Model</th>${CONFIG.scorecardLeads.map(h=>`<th>${leadLabel(h)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div></section>`;
+      return `<section class="metric-block"><div class="metric-block-head"><div><strong>${m.metricType}</strong><span>${CONFIG.sourceMetrics.includes(k)?'Available verification scores':'N/A — metric not yet available'}</span></div><small>Percent improvement vs ${s.baseline}</small></div><div class="mini-score-wrap"><table class="mini-score-table"><thead><tr><th>Model</th>${CONFIG.scorecardLeads.map(h=>`<th>${leadLabel(h)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div></section>`;
     }).join('');
     return `<article class="card scorecard-panel"><header><div><h3>${group.title}</h3><p>${variableForMetric(group.metrics[0]).level}</p></div></header>${metricBlocks}</article>`;
   }).join('');
@@ -253,15 +329,15 @@ function renderTimeSeries(){
   const m=CONFIG.metrics[s.metric],v=variableForMetric(s.metric),lead=s.lead==='all'?null:s.lead,w=rangeArgs(s),leadText=lead==null?'All forecast leads':`${leadLabel(lead)} · ${lead} h`;
   $('ts-chart-title').textContent=`${v.label} — ${m.metricType}`;$('ts-chart-subtitle').textContent=`${s.region} · ${leadText} · ${rangeLabel(s)}`;
   const series=s.models.map(model=>({name:model,color:modelColor(model),data:data.dailyValueSeries({...w,model,metric:s.metric,region:s.region,lead}).map(d=>({x:d.date.getTime(),y:d.value,label:dateFull(d.date.getTime())}))}));
-  renderLineChart($('ts-chart'),series,{formatX:dateShort,formatY:y=>metricFmt(s.metric,y),formatTooltipY:y=>metricFmt(s.metric,y),ySuffix:'',zeroLine:m.direction==='target',tooltipTitle:m.short,emptyMessage:'No models selected. Choose any number of models above.',interactive:true,xAxisLabel:'Date',yAxisLabel:metricAxisLabel(s.metric),exportName:`time-series_${s.metric}_${s.region}_${s.lead}.png`,exportTitle:`Performance Time Series — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${leadText} · ${rangeLabel(s)}`});
-  $('ts-verification-note').innerHTML=`<strong>Verification:</strong> ${v.obsSource} · ${v.level}. ${metricDirectionText(m)} ${lead==null?'Each date aggregates all available forecast leads.':'Each point uses the selected forecast lead.'}`;
+  renderLineChart($('ts-chart'),series,{formatX:dateShort,formatY:y=>metricFmt(s.metric,y),formatTooltipY:y=>metricFmt(s.metric,y),ySuffix:'',zeroLine:m.direction==='target',tooltipTitle:m.short,emptyMessage:'N/A — choose models or select a metric with available verification data.',interactive:true,maxSegmentGap:1.5*86400000,xAxisLabel:'Date',yAxisLabel:metricAxisLabel(s.metric),exportName:`time-series_${s.metric}_${s.region}_${s.lead}.png`,exportTitle:`Performance Time Series — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${leadText} · ${rangeLabel(s)}`});
+  $('ts-verification-note').textContent=`${metricDirectionText(m)} ${lead==null?'Each date aggregates all available forecast leads.':'Each point uses the selected forecast lead.'}`;
 }
 
-function renderCurrent(){if(!data.rows.length)return;if(state.route==='home')renderHome();else if(state.route==='skill')renderSkill();else if(state.route==='scorecard')renderScorecardPage();else if(state.route==='timeseries')renderTimeSeries()}
+function renderCurrent(){if(state.route==='home')renderHome();else if(state.route==='skill')renderSkill();else if(state.route==='scorecard')renderScorecardPage();else if(state.route==='timeseries')renderTimeSeries()}
 
 async function start(){
   initTheme();initNavigation();initHomeControls();initDetailControls();
   try{await data.load(CONFIG.defaultRegion);syncDateLimits();updateDataStatus();const initial=location.hash.replace('#/','');setRoute(['home','skill','scorecard','timeseries','methodology','changelog'].includes(initial)?initial:'home',!initial)}
-  catch(err){console.error(err);document.querySelector('.status-dot').className='status-dot error';$('data-status').textContent='Data load failed';document.querySelector('.main-content').innerHTML=`<section class="card"><div class="empty">Unable to load the demonstration CSV. Serve this directory through HTTP rather than opening index.html directly.</div></section>`}
+  catch(err){console.error(err);document.querySelector('.status-dot').className='status-dot error';$('data-status').textContent='Data load failed';document.querySelector('.main-content').innerHTML=`<section class="card"><div class="empty">Unable to load the EVS data files. Check deployment and use HTTP(S).</div></section>`}
 }
 start();

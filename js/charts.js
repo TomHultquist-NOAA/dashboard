@@ -43,7 +43,17 @@ function tickValues(view,explicit,count=6,sourceX=[]){
   return out;
 }
 
-function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY=false,filename,allX,exportTitle='',exportSubtitle=''}){
+function splitAtDataGaps(points,maxSegmentGap){
+  if(!Number.isFinite(maxSegmentGap)||maxSegmentGap<=0)return points.length?[points]:[];
+  const segments=[];let segment=[];
+  for(const point of points){
+    if(segment.length&&point.x-segment[segment.length-1].x>maxSegmentGap){segments.push(segment);segment=[]}
+    segment.push(point);
+  }
+  if(segment.length)segments.push(segment);
+  return segments;
+}
+function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY=false,filename,allX,exportTitle='',exportSubtitle='',maxSegmentGap=null}){
   const scale=2;
   const headerH=exportTitle?58:0;
   const canvas=document.createElement('canvas');
@@ -84,7 +94,10 @@ function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTic
   ctx.beginPath();ctx.rect(p.l,p.t,width-p.l-p.r,height-p.t-p.b);ctx.clip();
   for(const s of series){
     const pts=s.data.filter(d=>Number.isFinite(d.x)&&Number.isFinite(d.y));if(!pts.length)continue;
-    ctx.strokeStyle=s.color;ctx.lineWidth=3;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();pts.forEach((d,i)=>{const x=sx(d.x),y=sy(d.y);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.stroke();
+    ctx.strokeStyle=s.color;ctx.lineWidth=3;ctx.lineJoin='round';ctx.lineCap='round';
+    for(const segment of splitAtDataGaps(pts,maxSegmentGap)){
+      ctx.beginPath();segment.forEach((d,i)=>{const x=sx(d.x),y=sy(d.y);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.stroke();
+    }
     ctx.fillStyle=s.color;for(const d of pts){ctx.beginPath();ctx.arc(sx(d.x),sy(d.y),2.5,0,Math.PI*2);ctx.fill()}
   }
   ctx.restore();
@@ -99,7 +112,7 @@ export function renderLineChart(container,series,{
   formatX=x=>String(x),formatY=null,ySuffix='%',zeroLine=true,
   tooltipTitle=null,formatTooltipY=null,emptyMessage='No data for this selection.',
   interactive=false,exportName='omd-chart.png',interactionHint='Drag a box to zoom · wheel to zoom horizontally · Shift+drag to pan',onSeriesHover=null,showLegend=false,
-  xDomain=null,xTickValues=null,yDomain=null,yTickValues=null,reverseY=false,xAxisLabel='',yAxisLabel='',exportTitle='',exportSubtitle=''
+  xDomain=null,xTickValues=null,yDomain=null,yTickValues=null,reverseY=false,xAxisLabel='',yAxisLabel='',exportTitle='',exportSubtitle='',maxSegmentGap=null
 }={}){
   if(container._chartCleanup){container._chartCleanup();container._chartCleanup=null}
   if(!series.length||!series.some(s=>s.data.length)){container.innerHTML=`<div class="empty">${esc(emptyMessage)}</div>`;return}
@@ -144,7 +157,7 @@ export function renderLineChart(container,series,{
     const axisTitle=xAxisLabel?`<text class="chart-axis-title" x="${(p.l+width-p.r)/2}" y="${height-7}" text-anchor="middle" fill="var(--chart-axis-text)" stroke="none" font-size="11" font-weight="700">${esc(xAxisLabel)}</text>`:'';
     const yTitle=yAxisLabel?`<text class="chart-axis-title" transform="translate(18 ${(p.t+height-p.b)/2}) rotate(-90)" text-anchor="middle" fill="var(--chart-axis-text)" stroke="none" font-size="11" font-weight="700">${esc(yAxisLabel)}</text>`:'';
     const zero=zeroLine&&view.y0<=0&&view.y1>=0?`<line x1="${p.l}" y1="${sy(0)}" x2="${width-p.r}" y2="${sy(0)}" stroke="var(--chart-zero)" stroke-dasharray="5 5"/>`:'';
-    const paths=series.map(s=>{const visiblePts=s.data.filter(d=>Number.isFinite(d.x)&&Number.isFinite(d.y));const pts=visiblePts.map(d=>`${sx(d.x)},${sy(d.y)}`).join(' '),markers=visiblePts.map(d=>`<circle class="series-marker" cx="${sx(d.x)}" cy="${sy(d.y)}" r="2.5" fill="${s.color}" stroke="none"/>`).join('');if(!pts)return'';return `<g class="chart-series" data-series="${esc(s.name)}" clip-path="url(#${clipId})"><polyline class="series-line" fill="none" stroke="${s.color}" stroke-width="3" points="${pts}" stroke-linecap="round" stroke-linejoin="round"/>${markers}</g>`}).join('');
+    const paths=series.map(s=>{const visiblePts=s.data.filter(d=>Number.isFinite(d.x)&&Number.isFinite(d.y));const segments=splitAtDataGaps(visiblePts,maxSegmentGap),paths=segments.map(segment=>`<polyline class="series-line" fill="none" stroke="${s.color}" stroke-width="3" points="${segment.map(d=>`${sx(d.x)},${sy(d.y)}`).join(' ')}" stroke-linecap="round" stroke-linejoin="round"/>`).join(''),markers=visiblePts.map(d=>`<circle class="series-marker" cx="${sx(d.x)}" cy="${sy(d.y)}" r="2.5" fill="${s.color}" stroke="none"/>`).join('');if(!paths)return'';return `<g class="chart-series" data-series="${esc(s.name)}" clip-path="url(#${clipId})">${paths}${markers}</g>`}).join('');
     container.innerHTML=`${interactive?`<div class="chart-controls-row"><div class="chart-interaction-hint">${esc(interactionHint)}</div><div class="chart-tools" role="toolbar" aria-label="Chart controls"><button class="chart-tool zoom-in" title="Zoom in horizontally" aria-label="Zoom in horizontally">${icon('plus')}</button><button class="chart-tool zoom-out" title="Zoom out horizontally" aria-label="Zoom out horizontally">${icon('minus')}</button><button class="chart-tool chart-reset" title="Reset chart view" aria-label="Reset chart view">${icon('reset')}</button><button class="chart-tool chart-save" title="Download PNG" aria-label="Download PNG">${icon('save')}</button></div></div>`:''}<svg class="data-chart-svg" viewBox="0 0 ${width} ${height}" role="img"><defs><clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${width-p.l-p.r}" height="${height-p.t-p.b}"/></clipPath></defs><rect x="0" y="0" width="${width}" height="${height}" fill="var(--chart-bg)" stroke="none"/>${grid}${zero}<line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${height-p.b}" stroke="var(--chart-axis)"/><line x1="${p.l}" y1="${height-p.b}" x2="${width-p.r}" y2="${height-p.b}" stroke="var(--chart-axis)"/>${paths}${axisTitle}${yTitle}<g class="chart-hover-layer" pointer-events="none" style="display:none" clip-path="url(#${clipId})"><line class="chart-hover-line" x1="0" y1="${p.t}" x2="0" y2="${height-p.b}" stroke="var(--chart-hover-line)" stroke-width="1.2" stroke-dasharray="4 4"/><g class="chart-hover-points"></g></g><rect class="chart-zoom-box" x="0" y="0" width="0" height="0" rx="2" fill="var(--chart-selection-fill)" stroke="var(--chart-selection-stroke)" stroke-width="1.2" pointer-events="none" style="display:none" clip-path="url(#${clipId})"/><rect class="chart-hover-capture" x="${p.l}" y="${p.t}" width="${width-p.l-p.r}" height="${height-p.t-p.b}" fill="transparent" stroke="none" pointer-events="all" style="touch-action:pan-y"/></svg><div class="chart-tooltip"></div>`;
 
     const svg=container.querySelector('.data-chart-svg'),capture=container.querySelector('.chart-hover-capture'),hoverLayer=container.querySelector('.chart-hover-layer'),hoverLine=container.querySelector('.chart-hover-line'),hoverPoints=container.querySelector('.chart-hover-points'),tooltip=container.querySelector('.chart-tooltip');
@@ -161,7 +174,7 @@ export function renderLineChart(container,series,{
       capture.addEventListener('pointerdown',event=>{if(event.pointerType==='touch'||event.button!==0)return;const q=clientToSvg(event);dragMode=event.shiftKey?'pan':'zoom';dragStart={clientX:event.clientX,clientY:event.clientY,px:q.px,py:q.py,view:{...view}};dragCurrent={...q};container.classList.add(dragMode==='pan'?'panning':'zoom-selecting');hide();event.preventDefault()});
       capture.addEventListener('wheel',event=>{event.preventDefault();const d=pointerToData(event);zoomX(event.deltaY<0?.82:1.22,d.x)},{passive:false});
       container.querySelector('.zoom-in').onclick=()=>zoomX(.78);container.querySelector('.zoom-out').onclick=()=>zoomX(1.28);container.querySelector('.chart-reset').onclick=reset;
-      container.querySelector('.chart-save').onclick=e=>{const btn=e.currentTarget;btn.disabled=true;try{exportCanvasPng({series,view:{...view},original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY,filename:exportName,allX,exportTitle,exportSubtitle})}catch(err){console.error(err);alert('Unable to save this chart image.')}finally{btn.disabled=false}};
+      container.querySelector('.chart-save').onclick=e=>{const btn=e.currentTarget;btn.disabled=true;try{exportCanvasPng({series,view:{...view},original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY,filename:exportName,allX,exportTitle,exportSubtitle,maxSegmentGap})}catch(err){console.error(err);alert('Unable to save this chart image.')}finally{btn.disabled=false}};
     }
   }
 
