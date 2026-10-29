@@ -355,12 +355,15 @@ body:not(.home-route) .app-footer .home-footer-extra{display:none}
 @media(min-width:1131px){.home-floating-selector.static-selector .selector-fields{grid-template-columns:.78fr 1.13fr .98fr 1.70fr .94fr .84fr!important}}
 @media(min-width:901px) and (max-width:1130px){.home-floating-selector.static-selector .selector-fields{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
 
-/* 1.0.3: Restore the original navy plot field in dark mode. Trace and marker
-   contrast borders are applied selectively in the shared SVG/PNG renderers. */
+/* 1.0.4: Preserve navy plot field; outline only the GFS trace/markers in dark mode. */
 /* The signal icon uses the exact blue/red diverging scorecard scale. */
+/* All red decline arrows stay white; a tiny shadow keeps them legible even on lighter reds. */
+.signal-icon.bad{text-shadow:0 1px 1px rgba(9,17,30,.62),0 0 1px rgba(9,17,30,.4)}
 .signal-icon{border:1px solid rgba(20,35,54,.25);transition:background-color .2s ease,color .2s ease}
 :root:not([data-theme="light"]) .signal-icon{box-shadow:0 0 0 1px rgba(230,240,253,.08)}
 /* A black GFS swatch still needs a visible boundary on dark control surfaces. */
 .chip-dot,.rank-model i,.coverage-model-dot,.chart-tooltip-series i{outline:1px solid rgba(158,180,205,.64);outline-offset:1px}
+/* Light mode needs no model-marker or color-swatch outlines. */
+:root[data-theme="light"] .chip-dot,:root[data-theme="light"] .rank-model i,:root[data-theme="light"] .coverage-model-dot,:root[data-theme="light"] .chart-tooltip-series i{outline:none}
 .chip.active{border-color:color-mix(in srgb,var(--chip-color) 55%,var(--line));}
 :root:not([data-theme="light"]) .chip.active[style*="#000000"]{border-color:rgba(208,223,240,.62);box-shadow:inset 0 0 0 1px rgba(208,223,240,.18)}

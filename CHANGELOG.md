@@ -2,6 +2,18 @@
 
 Version **1.0.0** is the first public release. Earlier internal development builds previously labeled `vN` are recorded as `0.N.0` to distinguish them from the user release.
 
+## 1.0.5 — October 29, 2026
+- Reduced the dark-mode GFS light outline: line under-stroke adds just 1.0 px overall (previously 2.2 px); marker borders are now 0.65 px (previously 1.1 px).
+- Shared renderer ensures the finer outline applies consistently to all interactive SVG plots, hover markers and downloaded PNGs. Other model styles and light mode are unchanged.
+- Fixed an inconsistent black arrow on similarly shaded red Notable Signals circles: all decline arrows use white text with a light contrast shadow; the red gradient and signal-selection logic remain unchanged.
+- No changes to verification calculations, real data, ingestion or scheduled-update scripts.
+
+## 1.0.4 — October 29, 2026
+- Fixed a dark-theme SVG rendering bug that painted the GFS line under-stroke dark instead of light. The black GFS trace now has a thin light outline, matching its outlined markers and exported PNGs.
+- Restricted outlines to GFS only in dark mode; AIGFS and other model traces and markers are unoutlined. No outlines are drawn on lines or markers in light mode.
+- Notable Signals selects the six largest absolute performance changes, and ensures at least one improvement and one decline when both exist; no forced 3/3 split.
+- Preserved model style definitions, all verification calculations, ingestion/cron scripts and current data CSVs.
+
 ## 1.0.3 — October 29, 2026
 - Restored the original dark navy (`#091524`) plotting background in dark mode.
 - Introduced contrast-aware thin trace and marker outlines: light borders for black GFS and any other low-contrast colors on navy, and understated dark borders only where needed on white in light mode.

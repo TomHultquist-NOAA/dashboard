@@ -1,4 +1,4 @@
-# OMD Model Performance Dashboard — 1.0.3
+# OMD Model Performance Dashboard — 1.0.5
 
 A static, responsive dashboard for comparing available **NOAA OMD Evaluation and Verification System (EVS)** summary statistics for global guidance systems. The interface offers Home rankings, Skill vs Lead, Scorecard, Time Series, Methodology, and Changelog, with a persistent dark/light theme and interactive charts.
 
@@ -21,9 +21,9 @@ A static, responsive dashboard for comparing available **NOAA OMD Evaluation and
 Time Series displays absolute verification statistics. Home ranks models by their available absolute scores; its scorecard and Skill vs Lead show baseline-relative comparisons using date- and lead-matched scores. Detailed pages offer **Standard** and **Strict** comparison settings. The Methodology page explains how to interpret these displays without implementation-specific terminology.
 
 
-## Model display conventions (1.0.3)
+## Model display conventions (1.0.5)
 
-Line styles apply consistently to interactive charts and downloaded PNG images. The dark theme uses the original deep-navy plot background; the light theme retains white. A thin light outline makes black GFS and other low-contrast lines visible on navy, while subtle dark outlines are used only for light-mode colors that need them. Both live charts and downloaded PNGs use the same contrast treatment. All model markers use the same nominal size (7).
+Line styles apply consistently to interactive charts and downloaded PNG images. The dark theme uses the original deep-navy plot background; the light theme retains white. A very fine light under-stroke (1.0 px total added width, approximately 0.5 px per side) is applied to the **black GFS line only in dark mode**, with a 0.65 px light border on its circular markers. AIGFS and the other models keep their original unoutlined styles in dark mode. **No line or marker receives an outline in light mode**. Both live charts and downloaded PNGs use these same rules. All model markers use the same nominal size (7).
 
 | Model | Color | Marker | Marker size | Line width |
 |---|---|---|---:|---:|
@@ -35,7 +35,7 @@ Line styles apply consistently to interactive charts and downloaded PNG images. 
 | FNMOC | `#00dc00` | Filled plus | 7 | 1.5 |
 | UKMET | `#e69f00` | Circle | 7 | 1.5 |
 
-AIGFS and CMC intentionally have matching line and marker styles, as requested. Notable Signals uses scorecard blues for positive changes and reds for negative changes, with shade intensity reflecting relative magnitude. The list includes both directions when both exist. No statistics or importer behavior are changed in this release.
+AIGFS and CMC intentionally have matching line and marker styles, as requested. Notable Signals uses scorecard blues for positive changes and reds for negative changes, with shade intensity reflecting relative magnitude. The list includes both directions when both exist. Declining signals consistently use white arrow glyphs over graduated reds, with a subtle shadow for contrast on paler reds. No statistics or importer behavior are changed in this release.
 
 ## Quick start: place on GitHub or a web server
 
@@ -111,6 +111,20 @@ CHANGELOG.md
 ```
 
 No startup server scripts or top-level enclosing directory are included. No login credentials, SSH keys, or locally downloaded raw `.stat` files are included.
+
+## Release 1.0.5 — finer dark-mode GFS outline
+
+- Reduced the GFS line under-stroke from 2.2 px to 1.0 px added width and its marker border from 1.1 px to 0.65 px.
+- Standardized red Notable Signals arrows to white with a subtle contrast shadow; the graduated red colors and signal ranking logic are unchanged.
+- The original dark background, line/marker colors, shapes and sizes, other-model rendering and light mode remain unchanged. Both SVG and exported PNG use the same outline parameters.
+- No changes to verification calculations, ingestion, scheduled updates or underlying data.
+
+## Release 1.0.4 — chart edge corrections and more selective signals
+
+- Fixed the interactive SVG GFS trace to use its intended thin *light* under-stroke on navy, matching the existing GFS marker and downloaded PNG.
+- Removed unintended outlines from AIGFS and other models, and from **every** line and marker in light mode.
+- Notable Signals now selects the six strongest changes by magnitude, reserving at least one signal of each sign whenever both signs are available (instead of a fixed three/three split).
+- Preserved original colors, markers, line widths, verification math, data ingestion and scheduled updates.
 
 ## Release 1.0.3 — original dark plotting field and adaptive outlines
 

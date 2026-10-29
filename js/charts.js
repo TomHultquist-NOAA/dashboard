@@ -53,26 +53,14 @@ function splitAtDataGaps(points,maxSegmentGap){
   if(segment.length)segments.push(segment);
   return segments;
 }
-// Outline just the model colors with insufficient contrast against the plot.
-// Never alter the exact model color: render a thin light/dark edge behind it.
-function chartLuminance(color){
-  let hex=String(color).trim().replace('#','');
-  if(/^[0-9a-f]{3}$/i.test(hex))hex=[...hex].map(c=>c+c).join('');
-  if(!/^[0-9a-f]{6}$/i.test(hex))return 0;
-  const linear=[0,2,4].map(i=>{const v=parseInt(hex.slice(i,i+2),16)/255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4)});
-  return .2126*linear[0]+.7152*linear[1]+.0722*linear[2];
-}
+// Keep the requested model colors unchanged. On the original navy plotting field,
+// only the black GFS trace needs a narrow light under-stroke. In light mode no
+// traces or markers are outlined. Share this rule with SVG, hover, and PNG export.
 function chartContrastEdge(color){
-  const foreground=chartLuminance(color);
-  const background=chartLuminance(cssVar('--chart-bg','#091524'));
-  const contrast=(Math.max(foreground,background)+.05)/(Math.min(foreground,background)+.05);
-  if(contrast>=3)return null;
-  const darkPlot=background<.18;
-  // Navy plots need a light halo for black GFS (and the deep blue models).
-  // White plots benefit from a subtler dark border on cyan, green, and orange.
-  return darkPlot
-    ?{color:'rgba(223,237,253,.86)',extraWidth:2,markerWidth:1.05}
-    :{color:'rgba(34,51,73,.62)',extraWidth:1.35,markerWidth:.7};
+  if(document.documentElement.getAttribute('data-theme')==='light')return null;
+  const normalized=String(color).trim().toLowerCase();
+  if(normalized!=='#000000'&&normalized!=='#000')return null;
+  return {color:'rgba(222,235,251,.92)',extraWidth:1.0,markerWidth:0.65};
 }
 // Marker conventions match the configured Matplotlib styles: o, X, ^, P.
 function seriesMarkerSize(s,scale=1){return (Number(s.markerSize)||6)*scale/2}
@@ -235,7 +223,8 @@ export function renderLineChart(container,series,{
       const contrastEdge=chartContrastEdge(s.color);
       const paths=segments.map(segment=>{
         const points=segment.map(d=>`${sx(d.x)},${sy(d.y)}`).join(' ');
-        const edge=contrastEdge?`<polyline class="series-edge" fill="none" stroke="rgba(25,42,62,.70)" stroke-width="${width+1.8}" points="${points}" stroke-linecap="round" stroke-linejoin="round"/>`:'';
+        const edgeWidth=width+(contrastEdge?contrastEdge.extraWidth:0);
+        const edge=contrastEdge?`<polyline class="series-edge" fill="none" stroke="${contrastEdge.color}" stroke-width="${edgeWidth}" data-base-width="${edgeWidth}" points="${points}" stroke-linecap="round" stroke-linejoin="round"/>`:'';
         return `${edge}<polyline class="series-line" fill="none" stroke="${s.color}" stroke-width="${width}" data-base-width="${width}" points="${points}" stroke-linecap="round" stroke-linejoin="round"/>`;
       }).join('');
       const markers=visiblePts.map(d=>svgMarker(sx(d.x),sy(d.y),s,1,'series-marker',contrastEdge)).join('');

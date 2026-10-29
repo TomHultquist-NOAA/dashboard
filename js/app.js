@@ -292,17 +292,21 @@ function renderHomeScorecard(vis,w){
   }).join('');
   $('home-scorecard-table').innerHTML=`<thead><tr><th>Metric</th>${vis.map(m=>`<th>${m}</th>`).join('')}</tr></thead><tbody>${rows}</tbody>`;
 }
-// Reserve up to three slots for each direction and fill unused slots with the
-// strongest remaining changes. Both directions appear whenever both exist.
+// Show the largest absolute changes, but never fill the entire list with one
+// direction when a meaningful change in the opposite direction also exists.
+// Unlike the prior 3/3 quota, a 5/1 or 1/5 split is allowed.
 function chooseNotableSignals(candidates,limit=6){
   const ordered=candidates.filter(s=>Number.isFinite(s.change)&&Math.abs(s.change)>1e-9)
     .sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)||a.model.localeCompare(b.model)||a.metric.localeCompare(b.metric));
-  const balancedCount=Math.floor(limit/2);
-  const positives=ordered.filter(s=>s.change>0).slice(0,balancedCount);
-  const negatives=ordered.filter(s=>s.change<0).slice(0,balancedCount);
-  const chosen=[...positives,...negatives];
-  const selected=new Set(chosen);
-  for(const s of ordered){if(chosen.length>=limit)break;if(!selected.has(s)){chosen.push(s);selected.add(s)}}
+  const chosen=ordered.slice(0,limit);
+  if(!chosen.length||limit<2)return chosen;
+  const hasPositive=ordered.some(s=>s.change>0),hasNegative=ordered.some(s=>s.change<0);
+  if(!hasPositive||!hasNegative)return chosen;
+  if(!chosen.some(s=>s.change>0)){
+    chosen[chosen.length-1]=ordered.find(s=>s.change>0);
+  }else if(!chosen.some(s=>s.change<0)){
+    chosen[chosen.length-1]=ordered.find(s=>s.change<0);
+  }
   return chosen.sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)||a.model.localeCompare(b.model)||a.metric.localeCompare(b.metric));
 }
 function signalGrade(change,maxMagnitude){
@@ -329,7 +333,10 @@ function renderSignals(vis){
   const maxMagnitude=Math.max(0,...signals.map(s=>Math.abs(s.change)));
   $('signals-list').innerHTML=signals.length?signals.map(s=>{
     const good=s.change>0,m=CONFIG.metrics[s.metric],shade=heatColor(signalGrade(s.change,maxMagnitude));
-    return `<div class="signal"><div class="signal-icon ${good?'good':'bad'}" style="background:${shade};color:${signalForeground(shade)};border-color:${shade}" title="${good?'Improvement':'Decline'} of ${Math.abs(s.change).toFixed(1)}%">${good?'▲':'▼'}</div><div><div class="signal-title">${s.model} · ${m.short}</div><div class="signal-desc">${good?'Improved':'Degraded'} ${Math.abs(s.change).toFixed(1)}% versus the preceding 15-day window.</div></div><div class="raw-value">${metricFmt(s.metric,s.raw)}</div></div>`;
+    // Keep every decline arrow white, even when two nearby red shades straddle
+    // the automatic luminance threshold (which made one arrow look black).
+    const arrowColor=good?signalForeground(shade):'#ffffff';
+    return `<div class="signal"><div class="signal-icon ${good?'good':'bad'}" style="background:${shade};color:${arrowColor};border-color:${shade}" title="${good?'Improvement':'Decline'} of ${Math.abs(s.change).toFixed(1)}%">${good?'▲':'▼'}</div><div><div class="signal-title">${s.model} · ${m.short}</div><div class="signal-desc">${good?'Improved':'Degraded'} ${Math.abs(s.change).toFixed(1)}% versus the preceding 15-day window.</div></div><div class="raw-value">${metricFmt(s.metric,s.raw)}</div></div>`;
   }).join(''):'<div class="empty">N/A — insufficient recent observations to assess changes.</div>';
 }
 function renderCategorySummary(vis,w){
