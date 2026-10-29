@@ -1,4 +1,4 @@
-# OMD Model Performance Dashboard — 1.0.2
+# OMD Model Performance Dashboard — 1.0.3
 
 A static, responsive dashboard for comparing available **NOAA OMD Evaluation and Verification System (EVS)** summary statistics for global guidance systems. The interface offers Home rankings, Skill vs Lead, Scorecard, Time Series, Methodology, and Changelog, with a persistent dark/light theme and interactive charts.
 
@@ -21,9 +21,9 @@ A static, responsive dashboard for comparing available **NOAA OMD Evaluation and
 Time Series displays absolute verification statistics. Home ranks models by their available absolute scores; its scorecard and Skill vs Lead show baseline-relative comparisons using date- and lead-matched scores. Detailed pages offer **Standard** and **Strict** comparison settings. The Methodology page explains how to interpret these displays without implementation-specific terminology.
 
 
-## Model display conventions (1.0.2)
+## Model display conventions (1.0.3)
 
-Line styles apply consistently to interactive charts and downloaded PNG images. The dark theme uses a muted steel-gray plotting field with strong black GFS contrast; the light theme retains white. Low-contrast model colors gain a subtle trace outline to remain readable on both, including exported PNGs. All model markers use the same nominal size (7).
+Line styles apply consistently to interactive charts and downloaded PNG images. The dark theme uses the original deep-navy plot background; the light theme retains white. A thin light outline makes black GFS and other low-contrast lines visible on navy, while subtle dark outlines are used only for light-mode colors that need them. Both live charts and downloaded PNGs use the same contrast treatment. All model markers use the same nominal size (7).
 
 | Model | Color | Marker | Marker size | Line width |
 |---|---|---|---:|---:|
@@ -111,6 +111,13 @@ CHANGELOG.md
 ```
 
 No startup server scripts or top-level enclosing directory are included. No login credentials, SSH keys, or locally downloaded raw `.stat` files are included.
+
+## Release 1.0.3 — original dark plotting field and adaptive outlines
+
+- Restored the original dark-navy chart background in dark mode without changing the dashboard's surrounding theme.
+- Improved chart readability using thin, contrast-aware outlines: light edges only when needed against navy (notably GFS black), and understated dark edges only for low-contrast lines on white.
+- Applied the same edge treatment to line segments, all marker shapes, and exported PNGs. Retained all model colors, marker sizes and line widths.
+- Preserved Notable Signals gradations and balanced improvements/declines, verification calculations, scheduled updates and user data.
 
 ## Release 1.0.2 — plot contrast and balanced signals
 

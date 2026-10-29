@@ -2,6 +2,12 @@
 
 Version **1.0.0** is the first public release. Earlier internal development builds previously labeled `vN` are recorded as `0.N.0` to distinguish them from the user release.
 
+## 1.0.3 — October 29, 2026
+- Restored the original dark navy (`#091524`) plotting background in dark mode.
+- Introduced contrast-aware thin trace and marker outlines: light borders for black GFS and any other low-contrast colors on navy, and understated dark borders only where needed on white in light mode.
+- Applied the same appearance to the live SVG charts and downloaded PNG images, without changing the seven model colors, common marker size or per-model line widths.
+- Retained Notable Signals' balanced blue/red gradations, real EVS ingestion, cron, and verification calculations.
+
 ## 1.0.2 — October 29, 2026
 - Darkened the plot background in dark mode to a muted steel gray while preserving black GFS visibility; subtle contrast outlines keep lighter model traces readable in live charts and exported PNGs.
 - Standardized the marker size to 7 for all seven models, keeping each requested line width, marker shape, and model color.

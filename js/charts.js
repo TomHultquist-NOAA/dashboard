@@ -53,49 +53,70 @@ function splitAtDataGaps(points,maxSegmentGap){
   if(segment.length)segments.push(segment);
   return segments;
 }
-// Preserve configured line colors while adding a thin contrasting edge only
-// for colors with low contrast against the current plot surface.
+// Outline just the model colors with insufficient contrast against the plot.
+// Never alter the exact model color: render a thin light/dark edge behind it.
 function chartLuminance(color){
-  const hex=String(color).trim().replace('#','');
+  let hex=String(color).trim().replace('#','');
+  if(/^[0-9a-f]{3}$/i.test(hex))hex=[...hex].map(c=>c+c).join('');
   if(!/^[0-9a-f]{6}$/i.test(hex))return 0;
   const linear=[0,2,4].map(i=>{const v=parseInt(hex.slice(i,i+2),16)/255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4)});
   return .2126*linear[0]+.7152*linear[1]+.0722*linear[2];
 }
-function chartNeedsOutline(color){
-  const a=chartLuminance(color),b=chartLuminance(cssVar('--chart-bg','#ffffff'));
-  return (Math.max(a,b)+.05)/(Math.min(a,b)+.05)<2.5;
+function chartContrastEdge(color){
+  const foreground=chartLuminance(color);
+  const background=chartLuminance(cssVar('--chart-bg','#091524'));
+  const contrast=(Math.max(foreground,background)+.05)/(Math.min(foreground,background)+.05);
+  if(contrast>=3)return null;
+  const darkPlot=background<.18;
+  // Navy plots need a light halo for black GFS (and the deep blue models).
+  // White plots benefit from a subtler dark border on cyan, green, and orange.
+  return darkPlot
+    ?{color:'rgba(223,237,253,.86)',extraWidth:2,markerWidth:1.05}
+    :{color:'rgba(34,51,73,.62)',extraWidth:1.35,markerWidth:.7};
 }
 // Marker conventions match the configured Matplotlib styles: o, X, ^, P.
 function seriesMarkerSize(s,scale=1){return (Number(s.markerSize)||6)*scale/2}
-function svgMarker(cx,cy,s,scale=1,cls='series-marker',outline=false){
+function svgMarker(cx,cy,s,scale=1,cls='series-marker',edge=null){
   const r=seriesMarkerSize(s,scale),c=s.color,shape=s.marker||'o';
   let mark;
   if(shape==='X'){
-    const a=r*.82,sw=Math.max(1.6,r*.74);
-    mark=`<path d="M${-a} ${-a}L${a} ${a}M${-a} ${a}L${a} ${-a}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="square"${outline?' style="paint-order:stroke;stroke-linejoin:round;filter:drop-shadow(0 0 1px #203348)"':''}/>`;
+    const a=r*.82,sw=Math.max(1.6,r*.74),d=`M${-a} ${-a}L${a} ${a}M${-a} ${a}L${a} ${-a}`;
+    mark=(edge?`<path d="${d}" fill="none" stroke="${edge.color}" stroke-width="${sw+edge.extraWidth}" stroke-linecap="square"/>`:'')+
+      `<path d="${d}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="square"/>`;
   }else if(shape==='^'){
-    mark=`<polygon points="0,${-r} ${r*.95},${r*.9} ${-r*.95},${r*.9}" fill="${c}"${outline?' stroke="#27394d" stroke-width=".85"':''}/>`;
+    mark=`<polygon points="0,${-r} ${r*.95},${r*.9} ${-r*.95},${r*.9}" fill="${c}"${edge?` stroke="${edge.color}" stroke-width="${edge.markerWidth}"`:''}/>`;
   }else if(shape==='P'){
-    const a=r*.93,sw=Math.max(1.8,r*.88);
-    mark=`<path d="M0 ${-a}V${a}M${-a} 0H${a}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="square"/>`;
+    const a=r*.93,sw=Math.max(1.8,r*.88),d=`M0 ${-a}V${a}M${-a} 0H${a}`;
+    mark=(edge?`<path d="${d}" fill="none" stroke="${edge.color}" stroke-width="${sw+edge.extraWidth}" stroke-linecap="square"/>`:'')+
+      `<path d="${d}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="square"/>`;
   }else{
-    mark=`<circle cx="0" cy="0" r="${r}" fill="${c}"${outline?' stroke="#27394d" stroke-width=".85"':''}/>`;
+    mark=`<circle cx="0" cy="0" r="${r}" fill="${c}"${edge?` stroke="${edge.color}" stroke-width="${edge.markerWidth}"`:''}/>`;
   }
   return `<g class="${cls}" transform="translate(${cx} ${cy})">${mark}</g>`;
 }
-function canvasMarker(ctx,x,y,s,scale=1,outline=false){
+function canvasMarker(ctx,x,y,s,scale=1,edge=null){
   const r=seriesMarkerSize(s,scale),shape=s.marker||'o';
-  ctx.save();ctx.translate(x,y);ctx.fillStyle=s.color;ctx.strokeStyle=s.color;if(outline){ctx.shadowColor='rgba(22,40,60,.7)';ctx.shadowBlur=1.5;}
-  if(shape==='X'){
-    const a=r*.82;ctx.lineWidth=Math.max(1.6,r*.74);ctx.lineCap='square';
-    ctx.beginPath();ctx.moveTo(-a,-a);ctx.lineTo(a,a);ctx.moveTo(-a,a);ctx.lineTo(a,-a);ctx.stroke();
+  ctx.save();ctx.translate(x,y);ctx.fillStyle=s.color;ctx.strokeStyle=s.color;
+  if(shape==='X'||shape==='P'){
+    const sw=shape==='X'?Math.max(1.6,r*.74):Math.max(1.8,r*.88);
+    ctx.lineCap='square';
+    const draw=()=>{
+      ctx.beginPath();
+      if(shape==='X'){
+        const a=r*.82;ctx.moveTo(-a,-a);ctx.lineTo(a,a);ctx.moveTo(-a,a);ctx.lineTo(a,-a);
+      }else{
+        const a=r*.93;ctx.moveTo(0,-a);ctx.lineTo(0,a);ctx.moveTo(-a,0);ctx.lineTo(a,0);
+      }
+      ctx.stroke();
+    };
+    if(edge){ctx.strokeStyle=edge.color;ctx.lineWidth=sw+edge.extraWidth;draw()}
+    ctx.strokeStyle=s.color;ctx.lineWidth=sw;draw();
   }else if(shape==='^'){
-    ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(r*.95,r*.9);ctx.lineTo(-r*.95,r*.9);ctx.closePath();ctx.fill();if(outline){ctx.shadowBlur=0;ctx.strokeStyle="#27394d";ctx.lineWidth=.85;ctx.stroke();}
-  }else if(shape==='P'){
-    const a=r*.93;ctx.lineWidth=Math.max(1.8,r*.88);ctx.lineCap='square';
-    ctx.beginPath();ctx.moveTo(0,-a);ctx.lineTo(0,a);ctx.moveTo(-a,0);ctx.lineTo(a,0);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(r*.95,r*.9);ctx.lineTo(-r*.95,r*.9);ctx.closePath();ctx.fill();
+    if(edge){ctx.strokeStyle=edge.color;ctx.lineWidth=edge.markerWidth;ctx.stroke()}
   }else{
-    ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();if(outline){ctx.shadowBlur=0;ctx.strokeStyle="#27394d";ctx.lineWidth=.85;ctx.stroke();}
+    ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
+    if(edge){ctx.strokeStyle=edge.color;ctx.lineWidth=edge.markerWidth;ctx.stroke()}
   }
   ctx.restore();
 }
@@ -141,11 +162,11 @@ function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTic
   ctx.beginPath();ctx.rect(p.l,p.t,width-p.l-p.r,height-p.t-p.b);ctx.clip();
   for(const s of series){
     const pts=s.data.filter(d=>Number.isFinite(d.x)&&Number.isFinite(d.y));if(!pts.length)continue;
-    const contrastEdge=chartNeedsOutline(s.color),lineWidth=Number(s.lineWidth)||1.5;
+    const contrastEdge=chartContrastEdge(s.color),lineWidth=Number(s.lineWidth)||1.5;
     ctx.lineJoin='round';ctx.lineCap='round';
     for(const segment of splitAtDataGaps(pts,maxSegmentGap)){
       ctx.beginPath();segment.forEach((d,i)=>{const x=sx(d.x),y=sy(d.y);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});
-      if(contrastEdge){ctx.strokeStyle='rgba(25,42,62,.70)';ctx.lineWidth=lineWidth+1.8;ctx.stroke()}
+      if(contrastEdge){ctx.strokeStyle=contrastEdge.color;ctx.lineWidth=lineWidth+contrastEdge.extraWidth;ctx.stroke()}
       ctx.strokeStyle=s.color;ctx.lineWidth=lineWidth;ctx.stroke();
     }
     for(const d of pts)canvasMarker(ctx,sx(d.x),sy(d.y),s,1,contrastEdge)
@@ -211,7 +232,7 @@ export function renderLineChart(container,series,{
       const visiblePts=s.data.filter(d=>Number.isFinite(d.x)&&Number.isFinite(d.y));
       const segments=splitAtDataGaps(visiblePts,maxSegmentGap);
       const width=Number(s.lineWidth)||1.5;
-      const contrastEdge=chartNeedsOutline(s.color);
+      const contrastEdge=chartContrastEdge(s.color);
       const paths=segments.map(segment=>{
         const points=segment.map(d=>`${sx(d.x)},${sy(d.y)}`).join(' ');
         const edge=contrastEdge?`<polyline class="series-edge" fill="none" stroke="rgba(25,42,62,.70)" stroke-width="${width+1.8}" points="${points}" stroke-linecap="round" stroke-linejoin="round"/>`:'';
@@ -226,7 +247,7 @@ export function renderLineChart(container,series,{
     const svg=container.querySelector('.data-chart-svg'),capture=container.querySelector('.chart-hover-capture'),hoverLayer=container.querySelector('.chart-hover-layer'),hoverLine=container.querySelector('.chart-hover-line'),hoverPoints=container.querySelector('.chart-hover-points'),tooltip=container.querySelector('.chart-tooltip');
     const setHighlight=name=>{container.querySelectorAll('.chart-series').forEach(g=>{
       const active=!name||g.dataset.series===name;g.style.opacity=active?'1':'.14';
-      g.querySelectorAll('.series-line').forEach(line=>{const base=Number(line.dataset.baseWidth)||1.5;line.setAttribute('stroke-width',name&&active?String(base+1.4):String(base))});
+      g.querySelectorAll('.series-line,.series-edge').forEach(line=>{const base=Number(line.dataset.baseWidth)||1.5;line.setAttribute('stroke-width',name&&active?String(base+1.4):String(base))});
       g.querySelectorAll('.series-marker').forEach(marker=>{const tr=marker.getAttribute('transform').replace(/ scale\([^)]+\)$/,'');marker.setAttribute('transform',tr+(name&&active?' scale(1.3)':''))});
     })};
     container._chartSetHighlight=setHighlight;
@@ -235,7 +256,7 @@ export function renderLineChart(container,series,{
     const clientToSvg=(event)=>{const r=svg.getBoundingClientRect();return{px:(event.clientX-r.left)*width/r.width,py:(event.clientY-r.top)*height/r.height}};
     const pixelToData=(px,py)=>({x:view.x0+((px-p.l)/(width-p.l-p.r))*(view.x1-view.x0),y:reverseY?view.y0+((py-p.t)/(height-p.t-p.b))*(view.y1-view.y0):view.y1-((py-p.t)/(height-p.t-p.b))*(view.y1-view.y0)});
     const pointerToData=event=>{const q=clientToSvg(event);return pixelToData(q.px,q.py)};
-    capture.addEventListener('pointermove',event=>{if(dragMode||!uniqueX.length)return;const d=pointerToData(event),x=nearestX(d.x),px=sx(x),rows=series.map(s=>{const pt=s.data.find(q=>q.x===x);return pt?{...s,point:pt}:null}).filter(Boolean);if(!rows.length)return hide();const nearest=rows.reduce((best,row)=>Math.abs(row.point.y-d.y)<Math.abs(best.point.y-d.y)?row:best,rows[0]);setHighlight(nearest?.name||null);if(onSeriesHover)onSeriesHover(nearest?.name||null);hoverLine.setAttribute('x1',px);hoverLine.setAttribute('x2',px);hoverPoints.innerHTML='';rows.forEach(row=>{const y=sy(row.point.y);const halo=document.createElementNS(SVG_NS,'circle');halo.setAttribute('cx',px);halo.setAttribute('cy',y);halo.setAttribute('r',String(seriesMarkerSize(row,1.4)+2));halo.setAttribute('fill','var(--chart-marker-halo)');halo.setAttribute('stroke','none');hoverPoints.appendChild(halo);hoverPoints.insertAdjacentHTML('beforeend',svgMarker(px,y,row,1.22,'hover-model-marker'))});hoverLayer.style.display='';const xLabel=rows[0].point.label||formatX(x),title=tooltipTitle?`${tooltipTitle} · ${xLabel}`:xLabel;tooltip.innerHTML=`<div class="chart-tooltip-title">${esc(title)}</div>${rows.map(row=>`<div class="chart-tooltip-row"><span class="chart-tooltip-series"><i style="background:${row.color}"></i>${esc(row.name)}</span><strong>${esc(tooltipY(row.point.y))}</strong></div>`).join('')}`;const cr=container.getBoundingClientRect(),lx=event.clientX-cr.left,ly=event.clientY-cr.top;tooltip.classList.add('visible');const tw=tooltip.offsetWidth,th=tooltip.offsetHeight;let left=lx+14,top=ly-th/2;if(left+tw>cr.width-8)left=lx-tw-14;top=Math.max(8,Math.min(top,cr.height-th-8));tooltip.style.left=`${left}px`;tooltip.style.top=`${top}px`});
+    capture.addEventListener('pointermove',event=>{if(dragMode||!uniqueX.length)return;const d=pointerToData(event),x=nearestX(d.x),px=sx(x),rows=series.map(s=>{const pt=s.data.find(q=>q.x===x);return pt?{...s,point:pt}:null}).filter(Boolean);if(!rows.length)return hide();const nearest=rows.reduce((best,row)=>Math.abs(row.point.y-d.y)<Math.abs(best.point.y-d.y)?row:best,rows[0]);setHighlight(nearest?.name||null);if(onSeriesHover)onSeriesHover(nearest?.name||null);hoverLine.setAttribute('x1',px);hoverLine.setAttribute('x2',px);hoverPoints.innerHTML='';rows.forEach(row=>{const y=sy(row.point.y);const halo=document.createElementNS(SVG_NS,'circle');halo.setAttribute('cx',px);halo.setAttribute('cy',y);halo.setAttribute('r',String(seriesMarkerSize(row,1.4)+2));halo.setAttribute('fill','var(--chart-marker-halo)');halo.setAttribute('stroke','none');hoverPoints.appendChild(halo);hoverPoints.insertAdjacentHTML('beforeend',svgMarker(px,y,row,1.22,'hover-model-marker',chartContrastEdge(row.color)))});hoverLayer.style.display='';const xLabel=rows[0].point.label||formatX(x),title=tooltipTitle?`${tooltipTitle} · ${xLabel}`:xLabel;tooltip.innerHTML=`<div class="chart-tooltip-title">${esc(title)}</div>${rows.map(row=>`<div class="chart-tooltip-row"><span class="chart-tooltip-series"><i style="background:${row.color}"></i>${esc(row.name)}</span><strong>${esc(tooltipY(row.point.y))}</strong></div>`).join('')}`;const cr=container.getBoundingClientRect(),lx=event.clientX-cr.left,ly=event.clientY-cr.top;tooltip.classList.add('visible');const tw=tooltip.offsetWidth,th=tooltip.offsetHeight;let left=lx+14,top=ly-th/2;if(left+tw>cr.width-8)left=lx-tw-14;top=Math.max(8,Math.min(top,cr.height-th-8));tooltip.style.left=`${left}px`;tooltip.style.top=`${top}px`});
     capture.addEventListener('pointerleave',()=>{if(!dragMode){hide();setHighlight(null);if(onSeriesHover)onSeriesHover(null)}});
     if(interactive){
       capture.addEventListener('pointerdown',event=>{if(event.pointerType==='touch'||event.button!==0)return;const q=clientToSvg(event);dragMode=event.shiftKey?'pan':'zoom';dragStart={clientX:event.clientX,clientY:event.clientY,px:q.px,py:q.py,view:{...view}};dragCurrent={...q};container.classList.add(dragMode==='pan'?'panning':'zoom-selecting');hide();event.preventDefault()});
