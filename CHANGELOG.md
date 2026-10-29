@@ -2,6 +2,19 @@
 
 Version **1.0.0** is the first public release. Earlier internal development builds previously labeled `vN` are recorded as `0.N.0` to distinguish them from the user release.
 
+## 1.0.8 — October 29, 2026
+
+- Added hover and keyboard-focus trace highlighting to the model selectors on **Skill vs Forecast Lead** and **Time Series**, matching Home's ranking graph behavior.
+- Highlighting emphasizes the selected model and dims the other plotted traces; hovering does not change model selection. The chart-to-selector highlight also works in reverse.
+- Expanded the in-dashboard Methodology to explain interpretation of the pointwise significance boxes, 20-date minimum, three-day randomization, shared threshold, and limitations; clarified Notable Signals and chart interactions. Documentation-only clarification; version remains 1.0.8.
+- Preserved the existing verification, significance, PNG export, ingestion, and cron behavior.
+
+## 1.0.7 — October 29, 2026
+- Always include a labeled 0.0% major y-axis tick on Skill vs Lead, including SVG and PNG export and interactive y-axis manipulation.
+- Add optional, explicitly exploratory 95% zero-centered significance boxes at each lead. Use paired daily scores and three-day block sign-swap randomization with at least 20 paired dates. The plotted box is a conservative envelope across the selected models.
+- Suppress significance boxes when the data are insufficient. Document that they are not official MET/EVS confidence intervals, do not correct for multiple testing, and cannot replace matched-pair statistical evaluation.
+- Preserve all existing model colors and markers, Home rankings, scorecards, data ingestion, and scheduled updates.
+
 ## 1.0.6 — October 29, 2026
 - Changed AIGFS from blue `#1e3cff` to purple `#8400c8` throughout charts, model chips, and PNG exports.
 - CMC stays blue; no other model styles, statistics, imports, or scheduled updates changed.

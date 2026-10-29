@@ -1,23 +1,29 @@
-# Daily verification updates — cron setup (1.0.6)
+# Scheduled EVS data updates
 
-The dashboard is static: its browser pages **read** `data/regions/*.csv`; they do not download NOAA `.stat` files themselves. Schedule the importer on a system that can access `https://emc.ncep.noaa.gov/gmb/mpr/dashboard_stats/`, **then publish** the resulting CSVs to the directory served by the dashboard. Merely running the importer on a processing host does not update a separate web server or GitHub Pages site.
+**OMD Model Performance Dashboard — version 1.0.8**
 
-## 1. Install the complete package and test the importer
+This guide covers automated retrieval of EVS STAT files, validation of normalized CSV outputs, and publication to a static dashboard. The browser reads published `data/regions/*.csv`; it does not retrieve STAT files directly.
 
-Use **Python 3.6.8 or later**; no pip packages are needed. Extract the dashboard ZIP with files directly at its root. **Preserve or copy your already-populated `data/` directory first**, because this distribution contains header-only CSV placeholders. This package does not contain the actual 88 days of ingested data from your server.
+The update scripts support **Python 3.6.8 or later** with no third-party Python packages. A processing host must be able to reach the source archive and the intended publication destination.
+
+## 1. Initial setup
+
+The distribution is extracted into the dashboard root, without an enclosing directory. **Existing populated `data/` files must be retained when installing a complete package**, because the complete archive contains header-only CSV placeholders.
+
+A manual importer run verifies access to the source files:
 
 ```bash
 cd /absolute/path/to/dashboard
 python3 tools/ingest_evs_stat.py --fetch --days 90
 ```
 
-This command defaults to 90 days ending **yesterday in the local timezone** when run directly. The provided scheduled wrapper explicitly uses **UTC** to avoid date-boundary issues. Inspect `data/ingest_report.json` and check `data/regions/*.csv` before enabling cron.
+Manual ingestion uses a 90-day window ending on the previous local date by default. The scheduled wrapper calculates the requested end date in **UTC**. The importer produces `data/regions/*.csv` and `data/ingest_report.json`; the report records coverage, missing files, and errors.
 
-## 2. Decide where to publish
+## 2. Publication configuration
 
-Edit a **private** `tools/dashboard_cron.conf` created from `tools/dashboard_cron.conf.example` (the real config is excluded by `.gitignore`). At a minimum, set an absolute `DASHBOARD_DIR` and `PYTHON_BIN` if cron does not find the correct Python.
+An optional private configuration file, `tools/dashboard_cron.conf`, is based on `tools/dashboard_cron.conf.example`. The private file is excluded by `.gitignore`. Paths, credentials, and publication settings depend on the hosting environment.
 
-**A. Same machine as the web files (local publication):**
+### Local web directory
 
 ```bash
 DASHBOARD_DIR=/absolute/path/to/dashboard
@@ -26,9 +32,9 @@ PUBLISH_MODE=local
 PUBLISH_DIR=/absolute/path/to/webroot/dashboard/data
 ```
 
-The default `PUBLISH_DIR` is `$DASHBOARD_DIR/data`. If the dashboard root is itself the webroot, you can omit `PUBLISH_DIR`.
+The default `PUBLISH_DIR` is `$DASHBOARD_DIR/data`, suitable when the dashboard checkout also serves the website.
 
-**B. Separate processing and web servers (SSH publication):**
+### Separate web server (SSH/SCP)
 
 ```bash
 DASHBOARD_DIR=/absolute/path/to/dashboard
@@ -38,9 +44,9 @@ REMOTE_HOST=web_account@web_server
 REMOTE_DATA_DIR=/absolute/path/to/webroot/dashboard/data
 ```
 
-The account running cron must be able to use `ssh` and `scp` to that host **without an interactive password prompt**, using an approved SSH authentication method. The wrapper stages the source data locally, copies verified CSVs to a temporary folder on the web host, and then moves them into the published `data/regions/` directory. Confirm your organization's rules allow this transfer. Remote paths must not contain spaces.
+The scheduled account requires approved, noninteractive SSH authentication and write permissions on the remote destination. The wrapper stages files before transferring and installing the verified CSVs. Remote publication paths must not contain spaces. Transfers must comply with applicable organizational security requirements.
 
-**C. GitHub Pages or another site deployed on Git push (Git publication):**
+### GitHub Pages or Git-based deployment
 
 ```bash
 DASHBOARD_DIR=/absolute/path/to/dashboard-git-checkout
@@ -49,40 +55,45 @@ PUBLISH_MODE=git
 GIT_REPO_DIR=/absolute/path/to/dashboard-git-checkout
 ```
 
-The checkout must have a configured upstream branch and **noninteractive push authentication** already working, and the GitHub Pages/deployment configuration must publish that branch/directory. The wrapper stages the verified CSVs and `data/ingest_report.json`, commits changes limited to those paths, and pushes. It does not commit unrelated modifications. GitHub itself will **not** update from a cron job that only changes local files; a successful push or explicit deployment is necessary.
+The repository checkout requires a configured upstream branch and noninteractive Git push authentication. The publishing branch or directory must also be configured for GitHub Pages or the applicable deployment system. The updater commits only the generated regional CSV files and ingestion report. An importer run without a successful push or deployment does not update a remotely hosted website.
 
-Do not store tokens, passwords, or SSH private keys in the repository. `tools/dashboard_cron.conf` is ignored by Git; protect its permissions (`chmod 600`).
+Passwords, access tokens, and SSH private keys must not be committed to the repository. The private configuration file can be protected with `chmod 600 tools/dashboard_cron.conf`.
 
-## 3. Test the scheduled command manually
+## 3. Manual test of the scheduled workflow
 
 ```bash
 cd /absolute/path/to/dashboard
 bash tools/run_scheduled_update.sh
 ```
 
-It downloads files from the rolling 90-day window, validates the four output CSVs and freshness of their latest verification date, then publishes in the configured mode. Existing cached `.stat` files are reused; days that previously returned HTTP 404 are retried. The source files for a given day may arrive later than the cron run, so late data will be collected on a subsequent run.
+The wrapper requests the rolling 90-day window, stages and validates the output, and publishes using the configured mode. Downloaded source files are cached; dates previously returning HTTP 404 are retried on subsequent runs. Files that arrive after a scheduled run are picked up on later runs.
 
-For a completely offline test, first use the importer with `--input-dir` manually; the supplied scheduled wrapper is designed for internet fetching.
+The scheduled wrapper requires source network access. An offline source-directory test can be performed separately with the importer's `--input-dir` option.
 
-## 4. Add the cron entry
+## 4. Cron schedule
 
-After you have confirmed the manual test and publication, use `crontab -e` for the account that has source access and web/Git permissions. Example using **18:30 UTC daily** (verify the server's cron timezone first):
+Example: **18:30 UTC daily**, on a server whose cron timezone is UTC:
 
 ```cron
 30 18 * * * /usr/bin/flock -n /home/USER/.omd_dashboard.lock /bin/bash /absolute/path/to/dashboard/tools/run_scheduled_update.sh >> /home/USER/omd_dashboard_update.log 2>&1
 ```
 
-Replace `USER`, the script path, and the log path with actual absolute paths. Verify `command -v flock` returns `/usr/bin/flock` or update it accordingly. `flock -n` prevents two scheduled imports from overlapping. If the server cron timezone is not UTC, set `CRON_TZ=UTC` where supported, or choose the equivalent local schedule. **18:30 UTC is a suggested time, not a claim about when NOAA files become available.** Adjust after observing actual source publication times. You can run the job twice per day if needed, but use the same lock file.
+The placeholders `USER` and `/absolute/path/to/dashboard` must be replaced with the actual account and installation paths. The `flock` executable location may vary; `flock -n` prevents concurrent updater runs. For servers using a different cron timezone, a supported `CRON_TZ=UTC` setting or the corresponding local time is necessary.
 
-A minimal cron entry that runs only ingestion, for a dashboard and importer installed in the webroot on the *same* server, is possible, but the wrapped method above is safer because it validates before publication.
+**18:30 UTC is an example schedule**, not a guaranteed NOAA source publication time. Update frequency and timing can be adjusted to observed availability, retaining the same lock file for every scheduled entry.
 
-## 5. Check that updates really reached the website
+## 5. Verification and troubleshooting
 
-- Review the log for `PASS:` and `Dashboard data refresh succeeded.`
-- Confirm `data/ingest_report.json` has a new `generated_utc` and suitable `latest_valid_date`.
-- Reload the live dashboard; Home shows the latest **verification date** from the loaded CSVs, not the script execution timestamp.
-- If the browser shows older data, clear its cache and check whether your web host/CDN caches `.csv` files. When using Git, confirm that the push succeeded **and** your Pages/deployment completed.
+A successful update should produce a cron log containing `PASS:` and `Dashboard data refresh succeeded.` The `generated_utc` value in `data/ingest_report.json` indicates ingestion time, while the Home footer reports the latest verification date represented in the data.
 
-The default quality gate rejects publication if no values were found, fewer than seven valid dates are present, the latest available verification date is more than seven days behind the requested end date, or the importer reports errors. Adjust `MAX_DATA_LAG_DAYS` and `MIN_DATA_DATES` in the private config if warranted. HTTP 404 files (such as the October 20–21 gaps observed during backfill) are recorded, not fabricated and not automatically treated as total job failure.
+| Symptom | Check |
+|---|---|
+| Data date does not advance | Upstream STAT file availability, ingestion report, and publication log |
+| Dashboard still shows older scores | Browser/CDN caching of CSV files and completion of web deployment |
+| Git publication fails | Git remote, upstream branch, and noninteractive authentication |
+| SSH publication fails | Remote path, permissions, host connectivity, and key configuration |
+| Some model/metric/date combinations are missing | Coverage recorded in `data/ingest_report.json`; missing values remain N/A |
 
-**Note on source corrections:** cached successful `.stat` downloads are reused. If an upstream file is revised, run the importer manually with `--refresh` to retrieve cached dates again; then run the scheduled wrapper to validate and publish those refreshed files.
+The default validation gate rejects outputs with no values, fewer than seven valid dates, a latest verification date more than seven days behind the requested end date, or reported ingestion errors. `MIN_DATA_DATES` and `MAX_DATA_LAG_DAYS` may be configured where operationally appropriate. Individual HTTP 404s do not automatically fail the entire update.
+
+Cached successful STAT downloads are reused. For revised upstream files, the importer supports `--refresh` to retrieve cached dates again, followed by validation and publication through the scheduled wrapper.

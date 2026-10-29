@@ -43,6 +43,21 @@ function tickValues(view,explicit,count=6,sourceX=[]){
   return out;
 }
 
+// Nicely spaced labeled ticks anchored at exact zero, never merely a dashed line.
+function zeroMajorTicks(lo,hi){
+  const span=Math.max(hi-lo,1e-9),desired=span/5,mag=Math.pow(10,Math.floor(Math.log10(desired)));
+  const step=([1,2,2.5,5,10].find(x=>x*mag>=desired)||10)*mag;
+  const start=Math.ceil((lo-1e-10)/step),end=Math.floor((hi+1e-10)/step);
+  const values=[];
+  for(let i=start;i<=end&&values.length<20;i++)values.push(i===0?0:Math.round(i*step*1e9)/1e9);
+  if(lo<=0&&hi>=0&&!values.includes(0))values.push(0);
+  return values.sort((a,b)=>a-b);
+}
+function visibleYTicks(view,explicit,forceZeroTick){
+  if(Array.isArray(explicit)&&explicit.length)return explicit.filter(y=>y>=view.y0-1e-9&&y<=view.y1+1e-9);
+  return forceZeroTick?zeroMajorTicks(view.y0,view.y1):Array.from({length:6},(_,i)=>view.y0+i*(view.y1-view.y0)/5);
+}
+function boxesWithinView(boxes,view){return (boxes||[]).filter(b=>Number.isFinite(b.x)&&Number.isFinite(b.halfHeight)&&b.halfHeight>=0&&b.x>=view.x0-.5&&b.x<=view.x1+.5)}
 function splitAtDataGaps(points,maxSegmentGap){
   if(!Number.isFinite(maxSegmentGap)||maxSegmentGap<=0)return points.length?[points]:[];
   const segments=[];let segment=[];
@@ -109,7 +124,7 @@ function canvasMarker(ctx,x,y,s,scale=1,edge=null){
   ctx.restore();
 }
 
-function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY=false,filename,allX,exportTitle='',exportSubtitle='',maxSegmentGap=null}){
+function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY=false,filename,allX,exportTitle='',exportSubtitle='',maxSegmentGap=null,forceZeroTick=false,significanceBoxes=[]}){
   const scale=2;
   const headerH=exportTitle?58:0;
   const canvas=document.createElement('canvas');
@@ -133,7 +148,7 @@ function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTic
   }
   ctx.lineWidth=1;ctx.font='11px Inter, Segoe UI, Arial, sans-serif';ctx.textBaseline='middle';
 
-  const exportYTicks=Array.isArray(yTickValues)&&yTickValues.length?yTickValues.filter(y=>y>=view.y0-1e-9&&y<=view.y1+1e-9):Array.from({length:6},(_,i)=>view.y0+i*(view.y1-view.y0)/5);
+  const exportYTicks=visibleYTicks(view,yTickValues,forceZeroTick);
   for(const y of exportYTicks){
     const py=sy(y);
     ctx.strokeStyle=colors.grid;ctx.beginPath();ctx.moveTo(p.l,py);ctx.lineTo(width-p.r,py);ctx.stroke();
@@ -142,6 +157,19 @@ function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTic
   for(const x of tickValues(view,xTickValues,6,allX)){
     const px=sx(x);ctx.strokeStyle=colors.gridSoft;ctx.beginPath();ctx.moveTo(px,p.t);ctx.lineTo(px,height-p.b);ctx.stroke();
     ctx.fillStyle=colors.axisText;ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillText(String(formatX(x)),px,height-(xAxisLabel?30:17));ctx.textBaseline='middle';
+  }
+  // Boxes are drawn behind all model traces, centered on zero at each lead.
+  // Each is a conservative pointwise estimated 95% null threshold.
+  if(significanceBoxes.length){
+    ctx.save();ctx.beginPath();ctx.rect(p.l,p.t,width-p.l-p.r,height-p.t-p.b);ctx.clip();
+    for(const b of boxesWithinView(significanceBoxes,view)){
+      const x=sx(b.x),x0=sx(b.x-.34),x1=sx(b.x+.34),yt=sy(b.halfHeight),yb=sy(-b.halfHeight);
+      ctx.fillStyle=cssVar('--chart-significance-fill','rgba(151,165,188,.23)');
+      ctx.strokeStyle=cssVar('--chart-significance-line','rgba(171,187,208,.65)');ctx.lineWidth=1;
+      ctx.fillRect(x0,Math.min(yt,yb),x1-x0,Math.abs(yb-yt));
+      ctx.strokeRect(x0,Math.min(yt,yb),x1-x0,Math.abs(yb-yt));
+    }
+    ctx.restore();
   }
   if(view.y0<=0&&view.y1>=0){ctx.strokeStyle=colors.zero;ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(p.l,sy(0));ctx.lineTo(width-p.r,sy(0));ctx.stroke();ctx.setLineDash([])}
   ctx.strokeStyle=colors.axis;ctx.beginPath();ctx.moveTo(p.l,p.t);ctx.lineTo(p.l,height-p.b);ctx.lineTo(width-p.r,height-p.b);ctx.stroke();
@@ -171,13 +199,15 @@ export function renderLineChart(container,series,{
   formatX=x=>String(x),formatY=null,ySuffix='%',zeroLine=true,
   tooltipTitle=null,formatTooltipY=null,emptyMessage='No data for this selection.',
   interactive=false,exportName='omd-chart.png',interactionHint='Drag a box to zoom · wheel to zoom horizontally · Shift+drag to pan',onSeriesHover=null,showLegend=false,
-  xDomain=null,xTickValues=null,yDomain=null,yTickValues=null,reverseY=false,xAxisLabel='',yAxisLabel='',exportTitle='',exportSubtitle='',maxSegmentGap=null
+  xDomain=null,xTickValues=null,yDomain=null,yTickValues=null,reverseY=false,xAxisLabel='',yAxisLabel='',exportTitle='',exportSubtitle='',maxSegmentGap=null,forceZeroTick=false,significanceBoxes=[]
 }={}){
   if(container._chartCleanup){container._chartCleanup();container._chartCleanup=null}
+  container._chartSetHighlight=null;
   if(!series.length||!series.some(s=>s.data.length)){container.innerHTML=`<div class="empty">${esc(emptyMessage)}</div>`;return}
 
   const width=820,height=410,p={l:yAxisLabel?92:72,r:20,t:25,b:xAxisLabel?68:52};
   const allX=series.flatMap(s=>s.data.map(d=>d.x)).filter(Number.isFinite),allY=series.flatMap(s=>s.data.map(d=>d.y)).filter(Number.isFinite);
+  if(significanceBoxes.length)for(const b of significanceBoxes)if(Number.isFinite(b.halfHeight)){allY.push(-b.halfHeight,b.halfHeight)}
   let ox0=xDomain?.[0]??Math.min(...allX),ox1=xDomain?.[1]??Math.max(...allX),oy0=yDomain?.[0]??Math.min(...allY),oy1=yDomain?.[1]??Math.max(...allY);
   if(ox0===ox1){ox0-=1;ox1+=1}if(oy0===oy1){oy0-=1;oy1+=1}
   if(!yDomain){const yp=(oy1-oy0)*.13||1;oy0-=yp;oy1+=yp;if(zeroLine){oy0=Math.min(oy0,0);oy1=Math.max(oy1,0)}}
@@ -200,6 +230,7 @@ export function renderLineChart(container,series,{
     if(view.x1>original.x1){view.x0-=view.x1-original.x1;view.x1=original.x1}
     if(view.y0<original.y0){view.y1+=original.y0-view.y0;view.y0=original.y0}
     if(view.y1>original.y1){view.y0-=view.y1-original.y1;view.y1=original.y1}
+    if(forceZeroTick&&(view.y0>0||view.y1<0)){const shift=view.y0>0?view.y0:view.y1;view.y0-=shift;view.y1-=shift}
   };
   const zoomX=(factor,cx=(view.x0+view.x1)/2)=>{view.x0=cx+(view.x0-cx)*factor;view.x1=cx+(view.x1-cx)*factor;clampView();draw()};
   const reset=()=>{Object.assign(view,original);draw()};
@@ -209,12 +240,16 @@ export function renderLineChart(container,series,{
   function draw(){
     const sx=x=>p.l+(x-view.x0)/(view.x1-view.x0)*(width-p.l-p.r),sy=y=>reverseY?p.t+(y-view.y0)/(view.y1-view.y0)*(height-p.t-p.b):height-p.b-(y-view.y0)/(view.y1-view.y0)*(height-p.t-p.b);
     let grid='';
-    const yTicks=Array.isArray(yTickValues)&&yTickValues.length?yTickValues.filter(y=>y>=view.y0-1e-9&&y<=view.y1+1e-9):Array.from({length:6},(_,i)=>view.y0+i*(view.y1-view.y0)/5);
+    const yTicks=visibleYTicks(view,yTickValues,forceZeroTick);
     for(const y of yTicks){const py=sy(y);grid+=`<line x1="${p.l}" y1="${py}" x2="${width-p.r}" y2="${py}" stroke="var(--chart-grid)"/><text class="chart-label" x="${p.l-9}" y="${py+4}" text-anchor="end" fill="var(--chart-axis-text)" stroke="none" font-size="11">${esc(yAxis(y))}</text>`}
     const xLabelY=height-(xAxisLabel?30:17);
     for(const x of tickValues(view,xTickValues,6,allX)){const px=sx(x);grid+=`<line x1="${px}" y1="${p.t}" x2="${px}" y2="${height-p.b}" stroke="var(--chart-grid-soft)"/><text class="chart-label" x="${px}" y="${xLabelY}" text-anchor="middle" fill="var(--chart-axis-text)" stroke="none" font-size="11">${esc(formatX(x))}</text>`}
     const axisTitle=xAxisLabel?`<text class="chart-axis-title" x="${(p.l+width-p.r)/2}" y="${height-7}" text-anchor="middle" fill="var(--chart-axis-text)" stroke="none" font-size="11" font-weight="700">${esc(xAxisLabel)}</text>`:'';
     const yTitle=yAxisLabel?`<text class="chart-axis-title" transform="translate(18 ${(p.t+height-p.b)/2}) rotate(-90)" text-anchor="middle" fill="var(--chart-axis-text)" stroke="none" font-size="11" font-weight="700">${esc(yAxisLabel)}</text>`:'';
+    const boxes=boxesWithinView(significanceBoxes,view).map(b=>{
+      const x0=sx(b.x-.34),x1=sx(b.x+.34),top=sy(b.halfHeight),bottom=sy(-b.halfHeight);
+      return `<rect class="significance-box" x="${x0}" y="${Math.min(top,bottom)}" width="${Math.max(0,x1-x0)}" height="${Math.abs(bottom-top)}" fill="var(--chart-significance-fill)" stroke="var(--chart-significance-line)" stroke-width="1"><title>Exploratory 95% threshold: ±${b.halfHeight.toFixed(2)}% · Day ${b.x} · ${b.nModels} model comparisons · ≥${b.minPairedDates} paired dates</title></rect>`;
+    }).join('');
     const zero=zeroLine&&view.y0<=0&&view.y1>=0?`<line x1="${p.l}" y1="${sy(0)}" x2="${width-p.r}" y2="${sy(0)}" stroke="var(--chart-zero)" stroke-dasharray="5 5"/>`:'';
     const paths=series.map(s=>{
       const visiblePts=s.data.filter(d=>Number.isFinite(d.x)&&Number.isFinite(d.y));
@@ -231,7 +266,7 @@ export function renderLineChart(container,series,{
       if(!paths)return'';
       return `<g class="chart-series" data-series="${esc(s.name)}" clip-path="url(#${clipId})">${paths}${markers}</g>`;
     }).join('');
-    container.innerHTML=`${interactive?`<div class="chart-controls-row"><div class="chart-interaction-hint">${esc(interactionHint)}</div><div class="chart-tools" role="toolbar" aria-label="Chart controls"><button class="chart-tool zoom-in" title="Zoom in horizontally" aria-label="Zoom in horizontally">${icon('plus')}</button><button class="chart-tool zoom-out" title="Zoom out horizontally" aria-label="Zoom out horizontally">${icon('minus')}</button><button class="chart-tool chart-reset" title="Reset chart view" aria-label="Reset chart view">${icon('reset')}</button><button class="chart-tool chart-save" title="Download PNG" aria-label="Download PNG">${icon('save')}</button></div></div>`:''}<svg class="data-chart-svg" viewBox="0 0 ${width} ${height}" role="img"><defs><clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${width-p.l-p.r}" height="${height-p.t-p.b}"/></clipPath></defs><rect x="0" y="0" width="${width}" height="${height}" fill="var(--chart-bg)" stroke="none"/>${grid}${zero}<line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${height-p.b}" stroke="var(--chart-axis)"/><line x1="${p.l}" y1="${height-p.b}" x2="${width-p.r}" y2="${height-p.b}" stroke="var(--chart-axis)"/>${paths}${axisTitle}${yTitle}<g class="chart-hover-layer" pointer-events="none" style="display:none" clip-path="url(#${clipId})"><line class="chart-hover-line" x1="0" y1="${p.t}" x2="0" y2="${height-p.b}" stroke="var(--chart-hover-line)" stroke-width="1.2" stroke-dasharray="4 4"/><g class="chart-hover-points"></g></g><rect class="chart-zoom-box" x="0" y="0" width="0" height="0" rx="2" fill="var(--chart-selection-fill)" stroke="var(--chart-selection-stroke)" stroke-width="1.2" pointer-events="none" style="display:none" clip-path="url(#${clipId})"/><rect class="chart-hover-capture" x="${p.l}" y="${p.t}" width="${width-p.l-p.r}" height="${height-p.t-p.b}" fill="transparent" stroke="none" pointer-events="all" style="touch-action:pan-y"/></svg><div class="chart-tooltip"></div>`;
+    container.innerHTML=`${interactive?`<div class="chart-controls-row"><div class="chart-interaction-hint">${esc(interactionHint)}</div><div class="chart-tools" role="toolbar" aria-label="Chart controls"><button class="chart-tool zoom-in" title="Zoom in horizontally" aria-label="Zoom in horizontally">${icon('plus')}</button><button class="chart-tool zoom-out" title="Zoom out horizontally" aria-label="Zoom out horizontally">${icon('minus')}</button><button class="chart-tool chart-reset" title="Reset chart view" aria-label="Reset chart view">${icon('reset')}</button><button class="chart-tool chart-save" title="Download PNG" aria-label="Download PNG">${icon('save')}</button></div></div>`:''}<svg class="data-chart-svg" viewBox="0 0 ${width} ${height}" role="img"><defs><clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${width-p.l-p.r}" height="${height-p.t-p.b}"/></clipPath></defs><rect x="0" y="0" width="${width}" height="${height}" fill="var(--chart-bg)" stroke="none"/>${grid}<g clip-path="url(#${clipId})">${boxes}</g>${zero}<line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${height-p.b}" stroke="var(--chart-axis)"/><line x1="${p.l}" y1="${height-p.b}" x2="${width-p.r}" y2="${height-p.b}" stroke="var(--chart-axis)"/>${paths}${axisTitle}${yTitle}<g class="chart-hover-layer" pointer-events="none" style="display:none" clip-path="url(#${clipId})"><line class="chart-hover-line" x1="0" y1="${p.t}" x2="0" y2="${height-p.b}" stroke="var(--chart-hover-line)" stroke-width="1.2" stroke-dasharray="4 4"/><g class="chart-hover-points"></g></g><rect class="chart-zoom-box" x="0" y="0" width="0" height="0" rx="2" fill="var(--chart-selection-fill)" stroke="var(--chart-selection-stroke)" stroke-width="1.2" pointer-events="none" style="display:none" clip-path="url(#${clipId})"/><rect class="chart-hover-capture" x="${p.l}" y="${p.t}" width="${width-p.l-p.r}" height="${height-p.t-p.b}" fill="transparent" stroke="none" pointer-events="all" style="touch-action:pan-y"/></svg><div class="chart-tooltip"></div>`;
 
     const svg=container.querySelector('.data-chart-svg'),capture=container.querySelector('.chart-hover-capture'),hoverLayer=container.querySelector('.chart-hover-layer'),hoverLine=container.querySelector('.chart-hover-line'),hoverPoints=container.querySelector('.chart-hover-points'),tooltip=container.querySelector('.chart-tooltip');
     const setHighlight=name=>{container.querySelectorAll('.chart-series').forEach(g=>{
@@ -251,7 +286,7 @@ export function renderLineChart(container,series,{
       capture.addEventListener('pointerdown',event=>{if(event.pointerType==='touch'||event.button!==0)return;const q=clientToSvg(event);dragMode=event.shiftKey?'pan':'zoom';dragStart={clientX:event.clientX,clientY:event.clientY,px:q.px,py:q.py,view:{...view}};dragCurrent={...q};container.classList.add(dragMode==='pan'?'panning':'zoom-selecting');hide();event.preventDefault()});
       capture.addEventListener('wheel',event=>{event.preventDefault();const d=pointerToData(event);zoomX(event.deltaY<0?.82:1.22,d.x)},{passive:false});
       container.querySelector('.zoom-in').onclick=()=>zoomX(.78);container.querySelector('.zoom-out').onclick=()=>zoomX(1.28);container.querySelector('.chart-reset').onclick=reset;
-      container.querySelector('.chart-save').onclick=e=>{const btn=e.currentTarget;btn.disabled=true;try{exportCanvasPng({series,view:{...view},original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY,filename:exportName,allX,exportTitle,exportSubtitle,maxSegmentGap})}catch(err){console.error(err);alert('Unable to save this chart image.')}finally{btn.disabled=false}};
+      container.querySelector('.chart-save').onclick=e=>{const btn=e.currentTarget;btn.disabled=true;try{exportCanvasPng({series,view:{...view},original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY,filename:exportName,allX,exportTitle,exportSubtitle,maxSegmentGap,forceZeroTick,significanceBoxes})}catch(err){console.error(err);alert('Unable to save this chart image.')}finally{btn.disabled=false}};
     }
   }
 

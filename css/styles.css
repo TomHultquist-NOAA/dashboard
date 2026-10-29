@@ -4,7 +4,7 @@
   --accent:#58a6ff;--accent-soft:rgba(88,166,255,.13);--positive:#22c55e;--negative:#ef4444;--neutral:#64748b;
   --positive-soft:rgba(34,197,94,.14);--negative-soft:rgba(239,68,68,.14);--neutral-soft:rgba(100,116,139,.16);--positive-text:#bdf6cf;--negative-text:#ffd0d4;--neutral-text:#d6dfeb;
   --shadow:0 14px 38px rgba(0,0,0,.24);--radius:15px;--sidebar:#081524;--sidebar-active:rgba(88,166,255,.12);--sidebar-line:rgba(170,196,230,.12);
-  --dock:#0c2945;--dock-2:#103454;--dock-line:rgba(94,174,255,.58);--chart-bg:#091524;--chart-grid:rgba(172,195,226,.13);--chart-grid-soft:rgba(172,195,226,.075);
+  --dock:#0c2945;--dock-2:#103454;--dock-line:rgba(94,174,255,.58);--chart-bg:#091524;--chart-significance-fill:rgba(162,184,210,.18);--chart-significance-line:rgba(170,193,221,.48);--chart-grid:rgba(172,195,226,.13);--chart-grid-soft:rgba(172,195,226,.075);
   --chart-axis:rgba(197,216,240,.30);--chart-axis-text:#9aadc5;--chart-zero:rgba(230,239,250,.38);--chart-inset-bg:rgba(7,17,31,.91);--chart-inset-line:rgba(169,195,227,.24);--chart-legend-text:#e1ebf8;
   --chart-hover-line:rgba(215,229,246,.72);--chart-selection-fill:rgba(78,161,255,.18);--chart-selection-stroke:#65b3ff;--chart-marker-halo:rgba(255,255,255,.24);--tooltip-bg:rgba(4,12,22,.96);--tooltip-line:rgba(171,199,234,.25);--tooltip-shadow:0 12px 28px rgba(0,0,0,.42);
   --table-head:rgba(51,84,124,.26);--control-bg:#071423;
@@ -14,7 +14,7 @@
   --line:rgba(42,69,99,.18);--line-soft:rgba(42,69,99,.10);--text:#3b4b60;--text-strong:#152236;--muted:#6c7c90;--muted-strong:#475a71;
   --accent:#2563eb;--accent-soft:rgba(37,99,235,.09);--positive:#16a34a;--negative:#dc2626;--neutral:#94a3b8;--positive-soft:rgba(22,163,74,.10);--negative-soft:rgba(220,38,38,.10);--neutral-soft:rgba(148,163,184,.18);
   --positive-text:#0d7138;--negative-text:#a51d27;--neutral-text:#4b5d72;--shadow:0 10px 28px rgba(36,56,82,.11);--sidebar:#f8fafc;--sidebar-active:rgba(37,99,235,.09);--sidebar-line:rgba(42,69,99,.11);
-  --dock:#dbe8f5;--dock-2:#cfe0f0;--dock-line:rgba(37,99,235,.48);--chart-bg:#fff;--chart-grid:rgba(65,86,111,.14);--chart-grid-soft:rgba(65,86,111,.075);--chart-axis:rgba(45,63,86,.34);--chart-axis-text:#5c6d82;--chart-zero:rgba(44,62,84,.35);
+  --dock:#dbe8f5;--dock-2:#cfe0f0;--dock-line:rgba(37,99,235,.48);--chart-bg:#fff;--chart-significance-fill:rgba(87,107,134,.13);--chart-significance-line:rgba(85,105,132,.50);--chart-grid:rgba(65,86,111,.14);--chart-grid-soft:rgba(65,86,111,.075);--chart-axis:rgba(45,63,86,.34);--chart-axis-text:#5c6d82;--chart-zero:rgba(44,62,84,.35);
   --chart-inset-bg:rgba(255,255,255,.95);--chart-inset-line:rgba(53,75,101,.18);--chart-legend-text:#26364a;--chart-hover-line:rgba(38,55,75,.60);--chart-selection-fill:rgba(0,87,184,.13);--chart-selection-stroke:#0057b8;--chart-marker-halo:rgba(255,255,255,.82);--tooltip-bg:rgba(255,255,255,.98);--tooltip-line:rgba(45,67,95,.18);--tooltip-shadow:0 12px 26px rgba(42,60,86,.18);--table-head:#edf3f8;--control-bg:#fff;
 }
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:linear-gradient(180deg,var(--bg-deep),var(--bg));color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh;padding-bottom:20px}body.home-route{padding-bottom:108px}button,select,input{font:inherit}button{color:inherit}
@@ -367,3 +367,18 @@ body:not(.home-route) .app-footer .home-footer-extra{display:none}
 :root[data-theme="light"] .chip-dot,:root[data-theme="light"] .rank-model i,:root[data-theme="light"] .coverage-model-dot,:root[data-theme="light"] .chart-tooltip-series i{outline:none}
 .chip.active{border-color:color-mix(in srgb,var(--chip-color) 55%,var(--line));}
 :root:not([data-theme="light"]) .chip.active[style*="#000000"]{border-color:rgba(208,223,240,.62);box-shadow:inset 0 0 0 1px rgba(208,223,240,.18)}
+
+/* Skill-vs-Lead: optional, explicitly exploratory zero-centered thresholds. */
+.skill-significance-controls{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;padding:8px 18px 1px}
+.significance-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text-strong);font-size:.79rem;font-weight:720}
+.significance-toggle input{accent-color:var(--accent);width:16px;height:16px;margin:0;cursor:pointer}
+.significance-caption{font-size:.73rem;color:var(--muted-strong);line-height:1.4}
+
+/* v1.0.8 — model selector / plot highlighting on Skill vs Lead and Time Series */
+#skill-model-chips.model-hover .chip.active:not(.hovered),
+#ts-model-chips.model-hover .chip.active:not(.hovered){opacity:.55}
+#skill-model-chips .chip.hovered,
+#ts-model-chips .chip.hovered{outline:2px solid var(--text-strong);outline-offset:2px}
+
+/* Keep emphasized words within Methodology explanatory text inline. */
+.reference-steps article p strong{display:inline}

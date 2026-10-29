@@ -1,41 +1,47 @@
-# Data format — 1.0.6
+# Verification data format
 
-## Browser-facing normalized CSVs
+**OMD Model Performance Dashboard — version 1.0.8**
 
-The browser reads one UTF-8 CSV per region from `data/regions/`. Files are created by `tools/ingest_evs_stat.py` and have this exact header:
+## Regional CSV files
+
+The dashboard loads one UTF-8 CSV file per region from `data/regions/`. Each normalized file uses this header:
 
 ```csv
 valid_date,model,region,metric,forecast_hour,value,sample_count,completeness,verification_source
 ```
 
-| Field | Meaning |
+| Field | Description |
 |---|---|
-| `valid_date` | Forecast verification date (`YYYY-MM-DD`, interpreted as UTC) |
-| `model` | `GFS`, `AIGFS`, `CFS`, `CMC`, `ECMWF`, `FNMOC`, `UKMET` |
-| `region` | `Global`, `Northern Hemisphere`, `Southern Hemisphere`, `Tropics` |
-| `metric` | Currently `H500_ACC`, `MSLP_RMSE`, or `T850_RMSE`; other configured metrics have no rows until available |
-| `forecast_hour` | Numeric forecast lead in hours: 0, 24, …, 360 |
-| `value` | Actual finite verification summary statistic, in the metric's units |
-| `sample_count` | Empty until a scientifically appropriate raw sample count is available |
-| `completeness` | Empty until a suitable completeness measure is supplied |
-| `verification_source` | Verifying dataset identifier from source summary metadata; empty when unspecified |
+| `valid_date` | Forecast verification date in UTC, formatted `YYYY-MM-DD` |
+| `model` | `GFS`, `AIGFS`, `CFS`, `CMC`, `ECMWF`, `FNMOC`, or `UKMET` |
+| `region` | `Global`, `Northern Hemisphere`, `Southern Hemisphere`, or `Tropics` |
+| `metric` | Currently `H500_ACC`, `MSLP_RMSE`, or `T850_RMSE` |
+| `forecast_hour` | Forecast lead in hours: 0, 24, 48, …, 360 |
+| `value` | Finite verification summary statistic in the metric's units |
+| `sample_count` | Blank until a scientifically appropriate sample count is available |
+| `completeness` | Blank until a corresponding completeness measure is available |
+| `verification_source` | Verifying dataset identifier, if present in the source file |
 
-One logical record is identified by `valid_date`, `model`, `region`, `metric`, and `forecast_hour`. A missing combination is **absent** from the CSV and appears as `N/A` or a gap. It must never be silently filled with zero or invented observations.
+A record is uniquely identified by its `valid_date`, `model`, `region`, `metric`, and `forecast_hour` combination. Unavailable combinations are omitted from the CSV; the interface displays N/A or a gap. No synthetic values or zeros are substituted.
 
-## Source data
+## Source STAT files
 
-URLs are of the form:
+Source file locations follow this convention:
 
 ```text
 https://emc.ncep.noaa.gov/gmb/mpr/dashboard_stats/YYYYMMDD/model/model_METRIC_YYYYMMDD.stat
 ```
 
-Metric file suffixes: `H500_ACC`, `T850_RMSE`, `MSLP_RMSE`. The source is MET Stat-Analysis `.stat` format with `COL_NAME` and `SUMMARY` records. The importer parses `FCST_VALID_BEG` into `valid_date`, `VX_MASK` into the region, `FCST_LEAD` from MET HHMMSS into integer forecast hours, and `WMO_WEIGHTED_MEAN` or `MEAN` into `value`. It uses `-obtype` from source `JOB_LIST` as the verification-source label when available. Forecast leads are sampled every 24 hours for the present UI, not temporally averaged.
+Current metric suffixes are `H500_ACC`, `T850_RMSE`, and `MSLP_RMSE`.
 
-## Availability and publication
+The importer reads MET Stat-Analysis `COL_NAME` and `SUMMARY` records. It maps `FCST_VALID_BEG` to `valid_date`, `VX_MASK` to region, `FCST_LEAD` to forecast hours, and a valid `WMO_WEIGHTED_MEAN` (otherwise `MEAN`) to `value`. When present, the source `-obtype` identifier is retained as `verification_source`. The current display selects 24-hour forecast-lead intervals; intervening six-hourly leads are not averaged into daily leads.
 
-`data/ingest_report.json` includes requested dates, actual date coverage, counts, HTTP 404s, duplicate keys, and importer errors. Its `generated_utc` describes when ingestion ran; it is distinct from `latest_valid_date` shown on Home.
+Source STAT statistics have already been summarized. Aggregation over multiple dates in the browser is an approximation and does not recreate the underlying matched forecast–observation samples.
 
-The cron update wrapper stages new files in `.cron-work/` by default, validates the output, and publishes the entire group of regional CSVs and the report. Raw `.stat` download cache and cron temporary files are excluded from the Git repository via `.gitignore`. See [CRON_SETUP.md](CRON_SETUP.md).
+## Publication and availability
 
-The packaged CSVs have headers only. **Copy/retain your real data when updating a populated installation.** The source archive of actual regional CSVs is not available in this environment.
+The importer produces `data/ingest_report.json`, which records the ingestion timestamp (`generated_utc`), available dates, file coverage, missing sources, duplicate keys, and errors. The Home page's latest verification date is based on the CSV contents, not the ingestion timestamp.
+
+The scheduled wrapper stages and validates new outputs before publishing the regional CSVs and report together. Raw STAT downloads and temporary files are excluded from the repository by `.gitignore`. See [CRON_SETUP.md](CRON_SETUP.md).
+
+The **complete distribution contains CSV headers only**. Populated production CSVs are produced separately and must be retained when replacing application files. The update-only package excludes generated data.

@@ -126,7 +126,7 @@
           </section>
           <article class="card detail-chart-card">
             <header class="card-header stack-mobile"><div><h2 id="skill-chart-title">Skill vs Lead</h2><p id="skill-chart-subtitle"></p></div><div class="selection-actions"><button id="skill-select-all" class="small-button" type="button">Select all</button><button id="skill-clear-all" class="small-button" type="button">Clear</button></div></header>
-            <div id="skill-model-chips" class="chip-row"></div><div class="chart-shell detail-chart-shell"><div id="skill-chart" class="chart interactive-chart"></div></div><div id="skill-verification-note" class="verification-note"></div><div id="skill-comparison-warning" class="comparison-note" role="note"></div><details id="skill-coverage" class="comparison-coverage"><summary>Data availability <span id="skill-coverage-summary"></span></summary><div id="skill-coverage-table"></div></details>
+            <div id="skill-model-chips" class="chip-row"></div><div class="skill-significance-controls"><label class="significance-toggle"><input id="skill-significance-toggle" type="checkbox" checked><span>Show estimated significance thresholds</span></label><span class="significance-caption" id="skill-significance-status"></span></div><div class="chart-shell detail-chart-shell"><div id="skill-chart" class="chart interactive-chart"></div></div><div id="skill-verification-note" class="verification-note"></div><div id="skill-comparison-warning" class="comparison-note" role="note"></div><details id="skill-coverage" class="comparison-coverage"><summary>Data availability <span id="skill-coverage-summary"></span></summary><div id="skill-coverage-table"></div></details>
           </article>
         </section>
 
@@ -189,7 +189,8 @@
               <a href="#" data-scroll-to="method-aggregation">04 <span>Aggregation</span></a>
               <a href="#" data-scroll-to="method-ranks">05 <span>Ranks &amp; scorecards</span></a>
               <a href="#" data-scroll-to="method-windows">06 <span>Dates &amp; forecast leads</span></a>
-              <a href="#" data-scroll-to="method-signals">07 <span>Signals &amp; limitations</span></a>
+              <a href="#" data-scroll-to="method-significance">07 <span>Estimated significance</span></a>
+              <a href="#" data-scroll-to="method-signals">08 <span>Signals &amp; limitations</span></a>
             </nav>
             <div class="reference-content">
               <section class="reference-section card" id="method-scope">
@@ -233,7 +234,7 @@
                 <div class="reference-steps">
                   <article><strong>Overall ranking</strong><p>Home's ranking at left orders models using the <em>aggregated absolute statistic</em> across the selected dates and forecast lead(s): highest ACC/ETS, lowest RMSE, or Bias closest to zero ranks first. It is <strong>not</strong> the average of daily ranks.</p></article>
                   <article><strong>Daily rank history</strong><p>The Home plot separately ranks all models with a valid score at each individual date. <strong>1 = best</strong> (top of chart); larger rank numbers are lower-performing. The lines show rank changes, <em>not raw score changes</em>.</p></article>
-                  <article><strong>Skill vs Forecast Lead</strong><p>Each forecast day compares the model's aggregated metric against the selected model baseline (GFS by default). Positive percentages mean improvement and negative percentages mean degradation relative to that baseline.</p></article>
+                  <article><strong>Skill vs Forecast Lead</strong><p>Each forecast day compares the model's aggregated metric with a selected baseline (GFS by default). Positive percentages indicate improvement and negative percentages indicate degradation. The <strong>0.0%</strong> reference is always labeled. Optional gray boxes illustrate estimated significance thresholds; their interpretation and limitations are described below.</p></article>
                   <article><strong>Scorecard</strong><p>Home and full Scorecard both display percentage improvement relative to the chosen baseline for the relevant metric/forecast lead. Baseline cells are <strong>0.0%</strong>. Blue indicates positive skill, gray near zero, red negative skill; values are also printed, so color alone is not required.</p></article>
                   <article><strong>Time Series</strong><p>Shows actual metric values for each valid date at a chosen lead, or a metric-specific aggregation across all available leads. It is <strong>not</strong> baseline-relative. Y-axis units follow the selected metric.</p></article>
                 </div>
@@ -244,12 +245,27 @@
                 <div class="section-kicker">06 / SAMPLING</div><h3>Dates and forecast leads</h3>
                 <p>The window presets are <strong>7, 15, 30, 60, and 90 days</strong>. Each preset ends on the latest available verification date. A Custom Range allows a start and end date within the available 90-day period.</p>
                 <p>Skill vs Forecast Lead displays <strong>Day 0 through Day 15</strong> at whole-day intervals. The detailed Scorecard uses a compact subset: <strong>Days 1, 3, 5, 7, 10, and 15</strong>. Time Series can show a single lead or combine all available leads. Selected dates and forecast leads determine which statistics contribute to each result.</p>
+                <p><strong>Chart interaction:</strong> Hovering over a model name highlights its line on Home, Skill vs Forecast Lead, and Time Series; hovering over a line also identifies its model. Model-selection controls can show or hide traces without altering the underlying scores. Charts support sampling, zooming, panning, resetting the view, and downloading labeled PNGs. Dark and light themes use the same model colors and marker shapes.</p>
+              </section>
+
+              <section class="reference-section card" id="method-significance">
+                <div class="section-kicker">07 / UNCERTAINTY</div><h3>Estimated statistical significance</h3>
+                <p>Skill vs Forecast Lead can display <strong>gray boxes centered on the 0.0% skill reference</strong>. Each box spans an estimated threshold above and below zero for one forecast day. The boxes provide an exploratory indication of whether observed differences from the selected baseline are larger than might be expected from day-to-day variability.</p>
+                <div class="reference-steps">
+                  <article><strong>Trace beyond the box</strong><p>For a model with enough matched dates, a trace above or below the box exceeds the conservative estimated <strong>pointwise 95% threshold</strong> at that lead. This suggests a potentially meaningful difference, not a definitive statistical finding.</p></article>
+                  <article><strong>Trace within the box</strong><p>The shared box is an envelope across eligible models. A trace inside it is <strong>inconclusive</strong>; it does not establish equal performance or rule out a difference under a model-specific test.</p></article>
+                  <article><strong>Missing box</strong><p>At least <strong>20 matched verification dates</strong> are required for each model–baseline comparison. Leads with no qualifying comparisons have no box; 7- and 15-day windows normally have insufficient dates.</p></article>
+                  <article><strong>Display and export</strong><p>The <strong>Show estimated significance thresholds</strong> control displays or hides the boxes. They update with the selected models, baseline, metric, region, period, and comparison setting, and are included in exported PNGs when shown.</p></article>
+                </div>
+                <p><strong>How the thresholds are estimated:</strong> Daily model and baseline scores are matched at the same verification dates and forecast lead. The method performs <strong>499 randomized exchanges</strong> of model and baseline scores in <strong>three-day blocks</strong>, recalculating relative skill to estimate the variation expected under no systematic difference. The <strong>95th percentile of the absolute simulated differences</strong> determines each eligible model's threshold. For a given lead, the gray box uses the <strong>largest threshold</strong> among eligible selected models, so a single box can be shown without favoring the least-variable comparison.</p>
+                <div class="reference-notice"><strong>Interpretation caution</strong><span>These are approximate, pointwise thresholds derived from daily summary statistics—not official EVS significance results or confidence intervals based on the original forecast–observation pairs. Three-day grouping only approximates temporal dependence, and the estimates do not adjust for testing multiple models and forecast leads. A trace without 20 matched dates does not have a valid estimate even if a box is visible for another model.</span></div>
               </section>
 
               <section class="reference-section card" id="method-signals">
-                <div class="section-kicker">07 / CAUTIONS</div><h3>Notable Signals and limitations</h3>
-                <p>Home's Notable Signals compares each model's most recent <strong>15-day period</strong> with its <strong>preceding 15-day period</strong>, across selected headline metrics. Arrows indicate the direction of change: blue means improved and red means degraded. Darker shades indicate larger percentage changes; the section includes both directions when available. Signals indicate <strong>changes in recent summary performance</strong>, not statistically confirmed trends or operational alerts.</p>
-                <ul><li>Small differences in scores do not necessarily imply a statistically meaningful difference in forecast quality.</li><li>Performance depends on the metric, geographic region, forecast lead, verification period, and reference dataset.</li><li>Not all models may have comparable data for every metric or date.</li><li>Combining multiple forecast leads can obscure meaningful lead-specific differences.</li></ul>
+                <div class="section-kicker">08 / CAUTIONS</div><h3>Notable Signals and limitations</h3>
+                <p>Home's Notable Signals compares each model's most recent <strong>15-day period</strong> with the <strong>preceding 15-day period</strong>, using the available headline metrics across forecast leads. It displays up to <strong>six of the largest percentage changes</strong>. Blue upward arrows indicate improvement; red downward arrows indicate degradation. Stronger shades indicate larger changes, and at least one of each direction is included when both are present.</p>
+                <p>Signals are an automated way to identify possible changes in recent summary performance. They are <strong>not statistical significance tests</strong>, forecast alerts, or confirmed changes in model quality. They use fixed 15-day windows rather than the Home ranking chart's selected date range or forecast lead.</p>
+                <ul><li>Small differences in scores do not necessarily imply a meaningful difference in forecast quality.</li><li>Performance depends on metric, geographic region, forecast lead, verification period, and verifying dataset.</li><li>Not all models have data for every metric, date, or lead; <strong>N/A</strong> and gaps represent unavailable information, not zero performance.</li><li>Combining different forecast leads or comparing models with different coverage can obscure lead-specific differences.</li></ul>
               </section>
 </div>
           </div>
@@ -261,12 +277,14 @@
               <div class="reference-eyebrow">REFERENCE / 02</div>
               <h2>Changelog</h2>
               <p>Dashboard updates and release history, newest first.</p>
-              <div class="reference-pills"><span>Current version · 1.0.6</span><span>Updated AIGFS model color</span></div>
+              <div class="reference-pills"><span>Current version · 1.0.8</span><span>Model-selector trace highlighting</span></div>
             </div>
             <div class="reference-hero-symbol" aria-hidden="true">↻</div>
           </div>
           <div class="release-list">
-            <article class="release-card card current-release"><div class="release-side"><strong>1.0.6</strong><span class="release-status">Current</span><small>October 29, 2026</small></div><div><h3>Updated AIGFS color</h3><p>AIGFS now uses purple (#8400c8) on plots, markers, model controls, and exported PNGs. CMC remains blue. No other styling or verification calculations have changed.</p></div></article>
+            <article class="release-card card current-release"><div class="release-side"><strong>1.0.8</strong><span class="release-status">Current</span><small>October 29, 2026</small></div><div><h3>Model selector hover highlighting</h3><p>Hover over or focus a model selector on Skill vs Forecast Lead or Time Series to highlight its plotted trace and fade other lines, matching the Home ranking interaction. Moving away restores all traces. Selecting or deselecting models still works as before. The Methodology reference has also been expanded to explain the estimated significance boxes and recent chart features.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.7</strong><small>October 29, 2026</small></div><div><h3>Skill vs Lead zero reference and estimated significance</h3><p>The baseline 0.0% reference is always a labeled major tick on Skill vs Lead. An optional exploratory significance display adds per-lead boxes using paired daily scores when at least 20 matched dates are available. The estimates are not official EVS confidence intervals and are also included in downloaded PNGs.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.6</strong><small>October 29, 2026</small></div><div><h3>Updated AIGFS color</h3><p>AIGFS now uses purple (#8400c8) on plots, markers, model controls, and exported PNGs. CMC remains blue.</p></div></article>
             <article class="release-card card"><div class="release-side"><strong>1.0.5</strong><small>October 29, 2026</small></div><div><h3>Subtler GFS outline and consistent signal arrows</h3><p>Reduced the light outline on the GFS line and circular markers in dark mode, including exported PNGs. All declining Notable Signals now use white arrows with a subtle contrast shadow, avoiding an inconsistent black arrow between similar red shades. All other model styling and calculations are unchanged.</p></div></article>
             <article class="release-card card"><div class="release-side"><strong>1.0.4</strong><small>October 29, 2026</small></div><div><h3>Refined chart visibility and Notable Signals</h3><p>Corrected the GFS light line outline in dark mode, removed unnecessary outlines from other models and from all light-mode charts, and refined Notable Signals to show the strongest changes while including both improvements and declines when available.</p></div></article>
             <article class="release-card card"><div class="release-side"><strong>1.0.3</strong><small>October 29, 2026</small></div><div><h3>Original dark plots and selective contrast edging</h3><p>Restored the original deep-navy plot background and introduced adaptive contrast borders for model traces and markers in dark and light modes.</p></div></article>
@@ -305,7 +323,7 @@
       <footer class="app-footer">
         <div>OMD Model Performance Dashboard · EVS summary statistics · Missing data are indicated as N/A.</div>
         <div class="home-footer-extra" aria-label="Dashboard update and contact information">
-          <div>Dashboard last updated: <time datetime="2026-10-29">October 29, 2026</time> (1.0.6) · Latest available verification date: <time id="footer-verification-date">N/A</time></div>
+          <div>Dashboard last updated: <time datetime="2026-10-29">October 29, 2026</time> (1.0.8) · Latest available verification date: <time id="footer-verification-date">N/A</time></div>
           <div>Questions and comments can be directed to <a href="mailto:thomas.hultquist@noaa.gov">Tom Hultquist</a>, Office of Modeling and Development, Evaluation and Verification Unit.</div>
         </div>
       </footer>

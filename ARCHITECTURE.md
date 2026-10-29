@@ -1,44 +1,69 @@
-# Architecture — OMD Model Performance Dashboard 1.0.6
+# Architecture
 
-## Data pipeline
+**OMD Model Performance Dashboard — version 1.0.8**
+
+The dashboard is a static web application. Verification summaries are prepared separately and published as regional CSV files, avoiding direct STAT downloads from individual browsers.
+
+## Data flow
 
 ```text
-Daily NOAA/MET .stat files (dated YYYYMMDD folders; 7 models × 3 products)
-  -> tools/ingest_evs_stat.py (Python 3.6.8+, no external packages)
-       read SUMMARY rows, decode MET forecast lead, map four regions
-       preserve source verification date and dataset identifier
-       omit unavailable records; cache raw downloads locally
-  -> staged data/regions/*.csv and data/ingest_report.json
-  -> tools/check_ingest_output.py (cron quality gate)
-       reject missing/empty/corrupt/stale exports and reported errors
-  -> tools/update_dashboard_data.sh (publish mode: local | scp | git)
-  -> web-served data/regions/*.csv
-  -> browser DataService (read / filter / aggregate / match comparisons)
-  -> Home | Skill vs Lead | Scorecard | Time Series
-           + Methodology | Changelog
+NOAA EVS/MET daily STAT files
+    |
+    v
+tools/ingest_evs_stat.py (Python 3.6.8+)
+    |  normalize dates, forecast leads, model/metric names, regions
+    |  retain verification-source identifiers; omit unavailable records
+    v
+Staged regional CSV files + data/ingest_report.json
+    |
+    v
+tools/check_ingest_output.py (validation)
+    |
+    v
+tools/update_dashboard_data.sh (local | scp | git publication)
+    |
+    v
+Web-served data/regions/*.csv
+    |
+    v
+Browser CSV parser and DataService
+    |
+    v
+Home | Skill vs Lead | Scorecard | Time Series
+Methodology | Changelog
 ```
 
-The browser does not request raw source `.stat` files. It fetches only the normalized regional CSVs. The GitHub ZIP is static and flat; no startup server is included. Data in the ZIP are header-only placeholders, not a copy of the user's actual downloaded archive.
+The full distribution contains header-only CSV placeholders. Operational data are produced by ingestion, not bundled as demonstration observations.
 
-## Verification and display conventions
+## Normalization and comparison
 
-- Available products: `H500_ACC`, `T850_RMSE`, `MSLP_RMSE` across seven configured models and four regions; others remain N/A.
-- `FCST_LEAD` encodes HHMMSS; the UI retains F000 through F360 in 24-hour steps. Files inspected during development select 00 UTC verification valid time; no within-day four-cycle pooling is performed.
-- `WMO_WEIGHTED_MEAN` is chosen when valid, falling back to `MEAN`; duplicate date/model/region/metric/lead keys are identified in the audit report.
-- MET `TOTAL` cannot be treated as a spatial sample count. The importer leaves `sample_count` blank.
-- Date-range and all-lead aggregates combine already summarized statistics (RMSE via equal-record RMS pooling; ACC via equal-record Fisher transform). These are not equivalent to raw-pair pooled verification without additional source information.
-- Baseline comparisons pair common verification dates and forecast leads. Standard mode allows differing verification dataset labels; Strict mode requires matching nonblank labels. Whether different labels refer to equivalent data must be verified before formal claims.
-- Home ranks available absolute statistics independently of baseline; other pages show relative skill or absolute time series as appropriate.
-- Metric dropdowns are enabled only when the loaded region has real records for the chosen metric; missing records remain N/A even for otherwise available products.
+- Configured models: GFS, AIGFS, CFS, CMC, ECMWF, FNMOC, and UKMET; regions: Global, Northern Hemisphere, Southern Hemisphere, and Tropics.
+- Supported source products: `H500_ACC`, `MSLP_RMSE`, and `T850_RMSE`; other configured metric options remain unavailable until source data are added.
+- MET `FCST_LEAD` is decoded from HHMMSS into hours. The present display uses F000–F360 at 24-hour intervals. Source samples select 00 UTC verification valid time; no four-cycle daily pooling is currently performed.
+- Valid `WMO_WEIGHTED_MEAN` values take precedence over `MEAN`. MET `TOTAL` is not interpreted as a spatial sample count; the normalized `sample_count` field is blank.
+- Aggregation uses the supplied daily summary scores. RMSE is combined by equal-record RMS pooling and ACC through an equal-record Fisher transform. These operations do not replace calculations from original matched forecast–observation pairs.
+- Relative-skill calculations match model and baseline by verification date and lead. **Standard** permits differing verification-source labels; **Strict** requires matching nonblank labels. Comparison validity depends on the underlying verifying datasets.
+- Home rankings use absolute verification values; Skill vs Lead and scorecards use baseline-relative skill; Time Series presents absolute verification values.
+- Unavailable model/metric/lead/date combinations appear as N/A or chart gaps. Dropdown availability reflects real loaded records.
+
+The precise normalized CSV fields and source conventions are described in [DATA_FORMAT.md](DATA_FORMAT.md).
+
+## Charts and interaction
+
+`js/config.js` defines model colors, markers, and line widths. The chart renderer in `js/charts.js` handles interactive SVG displays and canvas-based PNG exports. The original deep-navy plotting surface is used in dark mode and white in light mode; only the black GFS trace uses a fine light outline in dark mode.
+
+Model chips on Home, Skill vs Lead, and Time Series support hover-to-highlight behavior. On Skill vs Lead and Time Series, keyboard focus also highlights the associated trace without altering model selection. Chart interactions include sampling, zoom, pan, and export.
+
+Notable Signals identifies the six largest changes between consecutive 15-day periods, including at least one improvement and one decline when both are present. Badge shades use the blue/red scorecard palette.
+
+## Exploratory significance estimates
+
+`js/significance.js` derives per-lead thresholds from matched daily model and baseline summaries. The implementation uses seeded three-day block sign-swap randomization (499 replicates, minimum 20 matched dates). The gray box at each lead represents the largest model-specific 95th-percentile absolute null threshold among selected non-baseline models. `js/charts.js` displays the boxes and the labeled 0.0% tick in both interactive charts and PNG exports.
+
+These pointwise temporal estimates are exploratory; they are not official MET/EVS significance intervals, do not resample spatial forecast–observation pairs, and are not adjusted for multiple comparisons.
 
 ## Scheduled publication
 
-The scheduler recomputes the rolling 90-day output into a temporary working directory and validates date coverage, freshness, counts and errors **before publishing**. Current operationally available files are cached to limit repeated requests; 404s are retried on later runs. The local mode copies validated files to a site path; SCP mode transfers over an existing SSH connection; Git mode commits only generated `data/` files and pushes to a configured upstream repository. None of these modes automatically configures credentials or a GitHub Pages publishing branch. See [CRON_SETUP.md](CRON_SETUP.md).
+The update wrapper stages a rolling 90-day archive, validates coverage and freshness, and then publishes it via local copy, SSH/SCP, or Git push. Cached successful downloads reduce repeated network requests, while missing dates are retried. Publication credentials and GitHub Pages configuration remain external to the repository.
 
-## Validation status
-
-The dashboard and Python ingestion logic were developed against retrieved example files and representative multi-model datasets. The user confirmed a successful ingest report with 1,848 files parsed, seven models, three products and 88 dates on their system. The actual generated CSVs were not uploaded into this environment for this release, so a full source-data/visual validation against that archive was not possible. The current package intentionally retains no synthetic scores.
-
-## Chart styling (1.0.6)
-
-`js/config.js` stores the single canonical style specification per model (`color`, `marker`, `markerSize`, `lineWidth`). `js/app.js` forwards that styling to the shared SVG and Canvas renderers in `js/charts.js`, so PNG export matches the interactive displays. The dark-theme plot field uses the original deep navy (`#091524`) and the light theme uses white. Only black GFS uses a fine light under-stroke (1.0 px added line width) and 0.65 px marker border in dark mode; other models are unoutlined. Light mode applies no line or marker outlines. The shared SVG renderer and Canvas PNG exporter use the same styling rule. All markers have nominal size 7, while line widths and markers retain model-specific styling. In 1.0.6, AIGFS uses `#8400c8` and CMC retains `#1e3cff`. Notable Signals selects the six strongest changes by absolute magnitude, ensuring at least one of each direction when both are available, and uses the scorecard blue/red shade scale to indicate change magnitude. These presentation changes do not alter verification data.
+Detailed settings and operational checks are provided in [CRON_SETUP.md](CRON_SETUP.md).

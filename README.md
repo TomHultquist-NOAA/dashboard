@@ -1,160 +1,86 @@
-# OMD Model Performance Dashboard — 1.0.6
+# OMD Model Performance Dashboard
 
-A static, responsive dashboard for comparing available **NOAA OMD Evaluation and Verification System (EVS)** summary statistics for global guidance systems. The interface offers Home rankings, Skill vs Lead, Scorecard, Time Series, Methodology, and Changelog, with a persistent dark/light theme and interactive charts.
+**Version 1.0.8**
 
-**Important:** The GitHub-ready ZIP contains **header-only CSV placeholders, not your previously ingested real data**. Before copying the full package over your current deployment, **back up and preserve `data/regions/*.csv` and `data/ingest_report.json`**. The user-generated 88-day archive is not included because those files have not been supplied here. The dashboard does not substitute synthetic statistics for missing observations.
+The OMD Model Performance Dashboard provides an interactive view of numerical weather prediction model performance using available summary statistics from NOAA's Office of Modeling and Development (OMD) Evaluation and Verification System (EVS).
 
-## What's currently supported
+The dashboard is a static, responsive website designed for desktop and mobile browsers. It supports comparisons across models, forecast lead times, geographic regions, verification metrics, and selected date ranges. No account or application installation is required.
 
-| Feature | Current behavior |
+## Dashboard pages
+
+| Page | Purpose |
 |---|---|
-| Models | GFS, AIGFS, CFS, CMC, ECMWF, FNMOC, UKMET |
-| Regions | Global, Northern Hemisphere, Southern Hemisphere, Tropics |
-| Incoming verification products | H500 ACC, T850 RMSE, MSLP RMSE |
-| Not yet available | Precipitation ETS, 2-m temperature, 10-m wind and other unprovided metrics |
-| Forecast leads | Days 0–15 (every 24 hours, if supplied by a model) |
-| History filters | 7, 15, 30, 60, 90 days or custom range within the archive |
-| Baseline | GFS by default; selectable on scorecard and detailed comparison pages |
-| Missing data | `N/A` or chart gaps, never fabricated values or zeros |
-| Metric menus | Unavailable metrics remain listed with `— N/A` and cannot be selected |
+| **Home** | Daily model rankings, baseline-relative verification scorecard, and notable changes in recent performance |
+| **Skill vs Lead** | Relative model skill as a function of forecast lead time, with optional estimated significance thresholds |
+| **Scorecard** | Baseline-relative comparisons across available metrics and forecast leads |
+| **Time Series** | Daily absolute verification scores for selected models and forecast leads |
+| **Methodology** | Explanations of verification metrics, comparisons, rankings, and interpretation |
+| **Changelog** | History of dashboard improvements and releases |
 
-Time Series displays absolute verification statistics. Home ranks models by their available absolute scores; its scorecard and Skill vs Lead show baseline-relative comparisons using date- and lead-matched scores. Detailed pages offer **Standard** and **Strict** comparison settings. The Methodology page explains how to interpret these displays without implementation-specific terminology.
+Charts support model selection, mouseover sampling, zooming, panning, and PNG export. Hovering over a model name highlights the corresponding trace on Home, Skill vs Lead, and Time Series. Light and dark themes are available, with the selected theme retained between visits.
 
+## Models and verification data
 
-## Model display conventions (1.0.6)
+The currently configured global models are **GFS, AIGFS, CFS, CMC, ECMWF, FNMOC, and UKMET**. Verification covers **Global, Northern Hemisphere, Southern Hemisphere, and Tropics** regions.
 
-Line styles apply consistently to interactive charts and downloaded PNG images. The dark theme uses the original deep-navy plot background; the light theme retains white. A very fine light under-stroke (1.0 px total added width, approximately 0.5 px per side) is applied to the **black GFS line only in dark mode**, with a 0.65 px light border on its circular markers. AIGFS and the other models keep their original unoutlined styles in dark mode. **No line or marker receives an outline in light mode**. Both live charts and downloaded PNGs use these same rules. All model markers use the same nominal size (7).
+| Available verification product | Metric | Preferred direction |
+|---|---|---|
+| 500-hPa geopotential height | Anomaly correlation coefficient (ACC) | Higher |
+| Mean sea level pressure | Root-mean-square error (RMSE) | Lower |
+| 850-hPa temperature | Root-mean-square error (RMSE) | Lower |
 
-| Model | Color | Marker | Marker size | Line width |
-|---|---|---|---:|---:|
-| GFS | `#000000` | Circle | 7 | 3 |
-| AIGFS | `#8400c8` | X | 7 | 1.5 |
-| CFS | `#56b4e9` | Circle | 7 | 1.5 |
-| CMC | `#1e3cff` | X | 7 | 1.5 |
-| ECMWF | `#fb2020` | Triangle | 7 | 1.5 |
-| FNMOC | `#00dc00` | Filled plus | 7 | 1.5 |
-| UKMET | `#e69f00` | Circle | 7 | 1.5 |
+Precipitation ETS, 2-m temperature, 10-m wind, and other products may appear in the interface before their data are available. Unavailable metric selections are labeled **N/A** and disabled. Individual missing model/date/lead combinations also appear as **N/A** or gaps; they are not replaced with zeros or synthetic scores.
 
-AIGFS uses purple (`#8400c8`), while CMC retains blue (`#1e3cff`); both use the X marker and 1.5-px line width. Notable Signals uses scorecard blues for positive changes and reds for negative changes, with shade intensity reflecting relative magnitude. The list includes both directions when both exist. Declining signals consistently use white arrow glyphs over graduated reds, with a subtle shadow for contrast on paler reds. No statistics or importer behavior are changed in this release.
+The dashboard supports forecast leads through **Day 15** in 24-hour steps, where available, and date ranges of **7, 15, 30, 60, or 90 days**, plus a custom range within the loaded archive. Available forecast horizons differ by model.
 
-## Quick start: place on GitHub or a web server
+### Reading the comparisons
 
-1. Unzip this package into the **root of the repository or static web directory**. There is no enclosing directory. It is a static HTML/CSS/JavaScript site and does not require a backend or build process.
-2. **Preserve the current `data/` files** if updating an installation already populated from EVS. New installs will initially show `N/A` until data are ingested.
-3. Host it over HTTP(S) (including GitHub Pages when correctly configured); opening `index.html` as `file://` generally prevents the data fetches from working.
-4. Visit Home and confirm the latest available verification date and model coverage. If content seems stale, hard-refresh and inspect caching of CSV files.
+- **Home rankings** order models using available absolute verification scores for the selected metric, region, lead, and dates; they do not depend on a baseline.
+- **Skill vs Lead** and the **scorecards** report performance relative to a selectable baseline (GFS by default). Positive skill indicates improvement over the baseline; negative skill indicates degradation.
+- **Time Series** shows absolute verification values rather than percentages relative to a baseline.
+- **Standard** comparison matches common valid dates and forecast leads. **Strict** also requires matching verification-dataset identifiers, which can reduce the available comparisons.
+- **Notable Signals** highlights the largest changes between successive 15-day periods, using graduated blue for improvement and red for degradation. When both directions are present, the list includes at least one of each.
 
-If using GitHub Pages, configure the publishing source/branch in repository settings. Committing the dashboard code to GitHub does **not** automatically make future generated data available—those updated CSVs also need to reach the publishing branch, or be copied to your web server.
+**Estimated significance thresholds:** Skill vs Lead offers optional gray boxes centered on the always-labeled 0.0% reference. Each box spans the largest estimated pointwise 95% threshold among displayed models with at least 20 matched daily dates for that forecast lead. A trace beyond the box suggests a potentially meaningful difference only for a model with sufficient paired dates; a trace inside the box is inconclusive. The thresholds use three-day block randomization on daily summary scores, not formal EVS testing. The in-dashboard **Methodology** page explains the calculation, interpretation, and limitations.
 
-## Loading the verification data
+## Availability and updates
 
-The standard-library Python importer supports **Python 3.6.8+** and requires no pip packages. Run it on a computer that can reach the NOAA source server:
+The Home page displays the latest available verification date from the loaded data. Data availability depends on the upstream verification files, so individual models, products, forecast leads, and dates may have different coverage.
+
+Automated updates require an external job to retrieve and normalize the source STAT files and publish the generated regional CSVs. The website itself does not collect source files. See [CRON_SETUP.md](CRON_SETUP.md) for scheduled data updates and publication options.
+
+## Deployment
+
+The dashboard uses HTML, CSS, and JavaScript and can be served by GitHub Pages or another static web server. It does not require an application server or build process. Files are distributed at the root of the archive and should remain in the same relative directory structure.
+
+The **complete distribution includes header-only regional CSV placeholders**, not an archive of operational verification observations. For an existing deployment with populated data, the **update-only distribution** preserves `data/regions/*.csv` and `data/ingest_report.json`. Replacing populated CSV files with the placeholders will result in N/A values until data are regenerated and published.
+
+A functioning deployment must serve files over HTTP(S); opening `index.html` directly from a local file system generally prevents the browser from fetching the CSV data. GitHub Pages deployments require a configured publishing branch or directory. Data generated on a separate processing system must also be published to the website's `data/` directory or GitHub publishing branch.
+
+### Manual data import
+
+The included importer supports **Python 3.6.8 or later**, using only the Python standard library:
 
 ```bash
 python3 tools/ingest_evs_stat.py --fetch --days 90
 ```
 
-The script looks for daily files at:
-
-```text
-https://emc.ncep.noaa.gov/gmb/mpr/dashboard_stats/YYYYMMDD/model/model_METRIC_YYYYMMDD.stat
-```
-
-where `model` is one of `gfs`, `aigfs`, `cfs`, `cmc`, `ecmwf`, `fnmoc`, `ukmet`, and `METRIC` is `MSLP_RMSE`, `H500_ACC`, or `T850_RMSE`. It produces four regional CSV files under `data/regions/` and `data/ingest_report.json`. Source downloads are cached under `raw_stat_cache/`, which is ignored by Git.
-
-You can also import a local copy of the source tree:
+It downloads available daily source STAT files, produces the four regional CSV files in `data/regions/`, and writes `data/ingest_report.json`. Cached source downloads are excluded from the Git repository. Existing local source files can also be imported:
 
 ```bash
 python3 tools/ingest_evs_stat.py --input-dir /path/to/dashboard_stats --days 90
 ```
 
-The source `.stat` records use MET forecast leads such as `1200000` for 120 hours. The importer selects whole-day leads F000, F024, …, F360 without interpolating six-hourly lead scores. File dates represent **forecast verification valid dates**, not forecast initialization dates. Currently inspected samples are restricted to 00 UTC valid times; no four-times-per-day averaging is performed. Daily statistics are subsequently aggregated by the dashboard over the chosen period.
+Additional setup, validation, and publication guidance is available in [CRON_SETUP.md](CRON_SETUP.md). The normalized CSV schema is documented in [DATA_FORMAT.md](DATA_FORMAT.md), and the system design is documented in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-The importer retains `WMO_WEIGHTED_MEAN` when available, otherwise `MEAN`, and does not treat MET `TOTAL=1` as a gridpoint count. Differences in coverage and verifying datasets can affect comparisons; use the Strict setting for matching verifying-dataset labels. Summarizing nonlinear statistics across dates is an approximation, not a reprocessing of raw forecast/observation pairs.
+## Methodology and scientific interpretation
 
-## Automated updates with cron
+The in-dashboard **Methodology** page describes each metric and the interpretation of rankings, scorecards, and skill comparisons. Results are derived from already summarized verification statistics; period-level aggregates are not identical to computations from the original matched forecast–observation pairs.
 
-**Read [CRON_SETUP.md](CRON_SETUP.md) for the tested command structure, scheduling example and deployment modes.** New scripts are:
+The optional Skill vs Lead significance boxes are **exploratory estimates based on matched daily summaries**, using three-day block sign-swap randomization. They do not reproduce official MET/EVS confidence intervals, do not adjust for multiple testing across models and leads, and should not be treated as a definitive statistical finding. Missing boxes indicate insufficient information for the estimate, not a conclusion about significance.
 
-- `tools/run_scheduled_update.sh`: cron entrypoint; loads optional private settings.
-- `tools/update_dashboard_data.sh`: requests a rolling 90-day archive ending yesterday **UTC**, validates the results and publishes them (local copy, SSH/SCP transfer, or Git commit/push).
-- `tools/check_ingest_output.py`: rejects an empty, stale or inconsistent update so a temporary upstream failure does not wipe out your published data.
-- `tools/dashboard_cron.conf.example`: optional settings template, to be copied to an ignored private config file.
+For software changes and release history, see [CHANGELOG.md](CHANGELOG.md).
 
-For a basic test before adding cron:
+## Contact
 
-```bash
-bash tools/run_scheduled_update.sh
-```
-
-The default mode publishes to this checkout's `data/` directory. If the live dashboard is on another web host, or served from GitHub Pages, **configure the matching publication mode first**. Running only the importer on a remote processing server will not update the website by itself.
-
-## Files
-
-```text
-index.html
-css/styles.css
-js/{app,charts,config,csv,data-service}.js
-data/regions/{Global,Northern Hemisphere,Southern Hemisphere,Tropics}.csv
-data/ingest_report.json
-tools/ingest_evs_stat.py
-tools/check_ingest_output.py
-tools/run_scheduled_update.sh
-tools/update_dashboard_data.sh
-tools/dashboard_cron.conf.example
-README.md
-CRON_SETUP.md
-DATA_FORMAT.md
-ARCHITECTURE.md
-CHANGELOG.md
-.gitignore
-```
-
-No startup server scripts or top-level enclosing directory are included. No login credentials, SSH keys, or locally downloaded raw `.stat` files are included.
-
-## Release 1.0.6 — AIGFS color update
-
-- Changed AIGFS to purple `#8400c8` across all interactive charts, model controls, and exported PNGs.
-- CMC retains blue `#1e3cff`. Model shapes, marker sizes, line widths, theme outlines, verification calculations, and ingestion/cron processes are unchanged.
-
-## Release 1.0.5 — finer dark-mode GFS outline
-
-- Reduced the GFS line under-stroke from 2.2 px to 1.0 px added width and its marker border from 1.1 px to 0.65 px.
-- Standardized red Notable Signals arrows to white with a subtle contrast shadow; the graduated red colors and signal ranking logic are unchanged.
-- The original dark background, line/marker colors, shapes and sizes, other-model rendering and light mode remain unchanged. Both SVG and exported PNG use the same outline parameters.
-- No changes to verification calculations, ingestion, scheduled updates or underlying data.
-
-## Release 1.0.4 — chart edge corrections and more selective signals
-
-- Fixed the interactive SVG GFS trace to use its intended thin *light* under-stroke on navy, matching the existing GFS marker and downloaded PNG.
-- Removed unintended outlines from AIGFS and other models, and from **every** line and marker in light mode.
-- Notable Signals now selects the six strongest changes by magnitude, reserving at least one signal of each sign whenever both signs are available (instead of a fixed three/three split).
-- Preserved original colors, markers, line widths, verification math, data ingestion and scheduled updates.
-
-## Release 1.0.3 — original dark plotting field and adaptive outlines
-
-- Restored the original dark-navy chart background in dark mode without changing the dashboard's surrounding theme.
-- Improved chart readability using thin, contrast-aware outlines: light edges only when needed against navy (notably GFS black), and understated dark edges only for low-contrast lines on white.
-- Applied the same edge treatment to line segments, all marker shapes, and exported PNGs. Retained all model colors, marker sizes and line widths.
-- Preserved Notable Signals gradations and balanced improvements/declines, verification calculations, scheduled updates and user data.
-
-## Release 1.0.2 — plot contrast and balanced signals
-
-- Darkened dark-mode plotting fields without changing the GFS black trace. Light-colored traces receive subtle contrast edging on screen and in downloaded PNGs.
-- Standardized all model marker sizes at 7 while preserving existing line widths, colors, and shapes.
-- Added graduated blue/red Notable Signals badges and balanced the selection toward showing both improvements and declines where data permit.
-- No changes to EVS verification calculations, regional CSVs, importer, or cron scripts.
-
-## Release 1.0.1 — model display styling
-
-- Applied standard model color/marker/width settings across charts and PNG exports.
-- Adjusted plot backgrounds for black GFS visibility in dark mode and aligned Notable Signals arrows with scorecard blue/red.
-
-## Release 1.0.0 — first user release
-
-- Custom Range now presents compact Start Date and End Date fields without stretching them to fill large grid columns. The standard 7/15/30/60/90-day selection layout is unchanged.
-- Release **1.0.0** established the first public versioning scheme. Earlier development builds are listed as **0.N.0** (for example, the former development build 32 is recorded as **0.32.0**).
-- The dashboard remains static and can be deployed from GitHub or a web server without a build step. Verification calculations, metric availability handling, and Python 3.6-compatible cron workflow are unchanged.
-- **The full package contains empty regional CSV placeholders**. For an existing live installation, use the update-only ZIP or preserve your real `data/` files before replacing anything.
-
-For scientific interpretation see the **Methodology** page; for data schema and internal design see [DATA_FORMAT.md](DATA_FORMAT.md) and [ARCHITECTURE.md](ARCHITECTURE.md). Questions and comments can be directed to [Tom Hultquist](mailto:thomas.hultquist@noaa.gov), Office of Modeling and Development, Evaluation and Verification Unit.
+Questions and comments can be directed to [Tom Hultquist](mailto:thomas.hultquist@noaa.gov), Office of Modeling and Development, Evaluation and Verification Unit.

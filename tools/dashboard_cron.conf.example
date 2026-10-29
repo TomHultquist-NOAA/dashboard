@@ -3,21 +3,21 @@
 # Do not commit passwords, SSH keys, or access tokens to GitHub.
 
 # PYTHON_BIN=/usr/bin/python3
-# DASHBOARD_DIR=/absolute/path/to/your/dashboard/checkout
+# DASHBOARD_DIR=/absolute/path/to/dashboard/checkout
 # WORK_DIR=/absolute/path/to/scratch/dashboard-cron
 # CACHE_DIR=/absolute/path/to/scratch/dashboard-stat-cache
 # DAYS=90
 # END_LAG_DAYS=1
 # MAX_DATA_LAG_DAYS=7
 # PUBLISH_MODE=local
-# PUBLISH_DIR=/absolute/path/to/your/webroot/data
+# PUBLISH_DIR=/absolute/path/to/webroot/data
 
 # Alternatively, to publish to another server by preconfigured SSH keys:
 # PUBLISH_MODE=scp
-# REMOTE_HOST=your_web_account@your_web_host
+# REMOTE_HOST=web_account@web_host
 # REMOTE_DATA_DIR=/absolute/path/to/webroot/dashboard/data
 
 # Alternatively, when the dashboard is hosted via GitHub Pages:
 # PUBLISH_MODE=git
-# GIT_REPO_DIR=/absolute/path/to/your/github/dashboard/checkout
+# GIT_REPO_DIR=/absolute/path/to/github/dashboard/checkout
 # Git push must already work noninteractively via configured SSH credentials.

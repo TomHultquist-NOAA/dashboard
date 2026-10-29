@@ -1,6 +1,7 @@
 import { CONFIG, metricKeys, variableKeys, metricsForVariable } from './config.js';
 import { DataService } from './data-service.js';
 import { renderLineChart } from './charts.js';
+import { buildSignificanceBoxes } from './significance.js';
 
 const data=new DataService();
 const $=id=>document.getElementById(id);
@@ -144,8 +145,36 @@ function setRoute(route,fromHash=false){
 }
 
 
-function renderChips(id,available,selected,onChange){
-  const box=$(id);box.innerHTML='';for(const model of available){const b=document.createElement('button');b.type='button';b.className=`chip ${selected.includes(model)?'active':''}`;b.style.setProperty('--chip-color',modelColor(model));b.innerHTML=`<span class="chip-dot" style="background:${modelColor(model)}"></span>${model}`;b.onclick=()=>{const next=selected.includes(model)?selected.filter(x=>x!==model):[...selected,model];onChange(next)};box.appendChild(b)}
+// Selection and temporary hover highlighting are independent: hovering a model
+// never changes which traces are enabled. The chart uses the same highlight API
+// as the ranking graph on Home.
+function highlightModelChip(id,model){
+  const box=$(id);
+  if(!box)return;
+  const active=!!model&&[...box.querySelectorAll('.chip.active')].some(b=>b.dataset.model===model);
+  box.classList.toggle('model-hover',active);
+  box.querySelectorAll('.chip').forEach(b=>b.classList.toggle('hovered',active&&b.dataset.model===model));
+}
+function renderChips(id,available,selected,onChange,onHover=null){
+  const box=$(id);box.innerHTML='';
+  for(const model of available){
+    const b=document.createElement('button');b.type='button';
+    b.className=`chip ${selected.includes(model)?'active':''}`;
+    b.dataset.model=model;
+    b.setAttribute('aria-pressed',String(selected.includes(model)));
+    b.style.setProperty('--chip-color',modelColor(model));
+    b.innerHTML=`<span class="chip-dot" style="background:${modelColor(model)}"></span>${model}`;
+    b.onclick=()=>{const next=selected.includes(model)?selected.filter(x=>x!==model):[...selected,model];onChange(next)};
+    if(onHover){
+      const show=()=>{const name=selected.includes(model)?model:null;highlightModelChip(id,name);onHover(name)};
+      const clear=()=>{highlightModelChip(id,null);onHover(null)};
+      b.addEventListener('mouseenter',show);
+      b.addEventListener('mouseleave',clear);
+      b.addEventListener('focus',show);
+      b.addEventListener('blur',clear);
+    }
+    box.appendChild(b);
+  }
 }
 
 function skillGrade(skill){
@@ -342,12 +371,21 @@ function renderSignals(vis){
 function renderCategorySummary(vis,w){
   const cats=['Surface','Upper Air','Precipitation'];$('category-summary').innerHTML=cats.map(cat=>{const mets=homeCoreMetrics().filter(k=>variableForMetric(k).category===cat),scores=[];for(const model of vis)for(const metric of mets){const s=data.skillFor({...w,model,baseline:state.home.baseline,metric,region:state.home.region,comparisonMode:state.home.comparisonMode});if(Number.isFinite(s))scores.push(s)}const leader=vis.map(model=>({model,s:avg(mets.map(metric=>data.skillFor({...w,model,baseline:state.home.baseline,metric,region:state.home.region,comparisonMode:state.home.comparisonMode})).filter(Number.isFinite))})).filter(x=>Number.isFinite(x.s)).sort((a,b)=>b.s-a.s)[0];return `<div class="category-card"><div class="category-title">${cat}</div><div class="category-value">${fmtPct(avg(scores))}</div><div class="category-detail">Leader: ${leader?.model||'N/A'} · ${fmtPct(leader?.s)}</div></div>`}).join('');
 }
+// Keep the optional significance display local to Skill vs Lead.
+let showSkillSignificance=true;
 function renderSkill(){
-  const s=state.skill;if(!ensureRegionReady(s.region,renderSkill))return;populateVariableMetric('skill-variable-filter','skill-metric-filter',s);$('skill-region-filter').value=s.region;$('skill-baseline-filter').value=s.baseline;$('skill-comparison-filter').value=s.comparisonMode;$('skill-period-filter').value=s.period;setCustomVisible('skill',s);renderChips('skill-model-chips',MODELS,s.models,next=>{s.models=next;renderSkill()});
+  const s=state.skill;if(!ensureRegionReady(s.region,renderSkill))return;populateVariableMetric('skill-variable-filter','skill-metric-filter',s);$('skill-region-filter').value=s.region;$('skill-baseline-filter').value=s.baseline;$('skill-comparison-filter').value=s.comparisonMode;$('skill-period-filter').value=s.period;setCustomVisible('skill',s);renderChips('skill-model-chips',MODELS,s.models,next=>{s.models=next;renderSkill()},name=>$('skill-chart')._chartSetHighlight?.(name));
   const m=CONFIG.metrics[s.metric],v=variableForMetric(s.metric),w=rangeArgs(s);$('skill-chart-title').textContent=`${v.label} — ${m.metricType}`;$('skill-chart-subtitle').textContent=`${s.region} · percent improvement versus ${s.baseline} · ${rangeLabel(s)}`;
   const series=s.models.map(model=>({name:model,color:modelColor(model),...chartModelStyle(model),data:data.skillByLead({...w,model,baseline:s.baseline,metric:s.metric,region:s.region,comparisonMode:s.comparisonMode}).map(d=>({x:d.lead/24,y:d.value,label:`Day ${Number(d.lead/24).toFixed(Number.isInteger(d.lead/24)?0:1)} · ${d.lead} h`}))}));
-  renderLineChart($('skill-chart'),series,{formatX:x=>String(Math.round(x)),xDomain:[0,15],xTickValues:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],xAxisLabel:'Forecast Lead Time (Days)',yAxisLabel:`Skill vs ${s.baseline} (%)`,ySuffix:'%',zeroLine:true,tooltipTitle:m.short,emptyMessage:'N/A — choose models or select a metric with available verification data.',interactive:true,exportName:`skill-vs-lead_${s.metric}_${s.region}.png`,exportTitle:`Skill vs Forecast Lead — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${rangeLabel(s)} · Baseline: ${s.baseline}`});
-  $('skill-verification-note').textContent=`${metricDirectionText(m)} Positive skill means improvement relative to ${s.baseline}.`;
+  const significance=showSkillSignificance?buildSignificanceBoxes(data,{...w,models:s.models,baseline:s.baseline,metric:s.metric,region:s.region,comparisonMode:s.comparisonMode}):{boxes:[],comparisons:0};
+  $('skill-significance-toggle').checked=showSkillSignificance;
+  const sigText=$('skill-significance-status');
+  sigText.textContent=!showSkillSignificance?'':significance.boxes.length
+    ?`${significance.boxes.length} lead${significance.boxes.length!==1?'s':''} with estimates · ≥20 matched dates required`
+    :'No estimate available (requires ≥20 matched dates at a lead)';
+  renderLineChart($('skill-chart'),series,{formatX:x=>String(Math.round(x)),xDomain:[0,15],xTickValues:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],xAxisLabel:'Forecast Lead Time (Days)',yAxisLabel:`Skill vs ${s.baseline} (%)`,ySuffix:'%',zeroLine:true,forceZeroTick:true,significanceBoxes:significance.boxes,tooltipTitle:m.short,emptyMessage:'N/A — choose models or select a metric with available verification data.',interactive:true,onSeriesHover:name=>highlightModelChip('skill-model-chips',name),exportName:`skill-vs-lead_${s.metric}_${s.region}.png`,exportTitle:`Skill vs Forecast Lead — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${rangeLabel(s)} · Baseline: ${s.baseline}`});
+  $('skill-verification-note').textContent=`${metricDirectionText(m)} Positive skill means improvement relative to ${s.baseline}. `+
+    (!showSkillSignificance?'Estimated significance thresholds are hidden.':significance.boxes.length?'Gray boxes show conservative, exploratory pointwise 95% thresholds around zero. A trace beyond a box exceeds its estimated threshold; these are not official EVS significance tests.':'Significance estimates require at least 20 paired daily observations at each lead.');
   renderComparisonCoverage('skill',{...w,region:s.region,metric:s.metric,baseline:s.baseline,comparisonMode:s.comparisonMode});
 }
 
@@ -374,11 +412,11 @@ function renderScorecardPage(){
 }
 
 function renderTimeSeries(){
-  const s=state.ts;if(!ensureRegionReady(s.region,renderTimeSeries))return;populateVariableMetric('ts-variable-filter','ts-metric-filter',s);$('ts-region-filter').value=s.region;$('ts-lead-filter').value=s.lead;$('ts-period-filter').value=s.period;setCustomVisible('ts',s);renderChips('ts-model-chips',MODELS,s.models,next=>{s.models=next;renderTimeSeries()});
+  const s=state.ts;if(!ensureRegionReady(s.region,renderTimeSeries))return;populateVariableMetric('ts-variable-filter','ts-metric-filter',s);$('ts-region-filter').value=s.region;$('ts-lead-filter').value=s.lead;$('ts-period-filter').value=s.period;setCustomVisible('ts',s);renderChips('ts-model-chips',MODELS,s.models,next=>{s.models=next;renderTimeSeries()},name=>$('ts-chart')._chartSetHighlight?.(name));
   const m=CONFIG.metrics[s.metric],v=variableForMetric(s.metric),lead=s.lead==='all'?null:s.lead,w=rangeArgs(s),leadText=lead==null?'All forecast leads':`${leadLabel(lead)} · ${lead} h`;
   $('ts-chart-title').textContent=`${v.label} — ${m.metricType}`;$('ts-chart-subtitle').textContent=`${s.region} · ${leadText} · ${rangeLabel(s)}`;
   const series=s.models.map(model=>({name:model,color:modelColor(model),...chartModelStyle(model),data:data.dailyValueSeries({...w,model,metric:s.metric,region:s.region,lead}).map(d=>({x:d.date.getTime(),y:d.value,label:dateFull(d.date.getTime())}))}));
-  renderLineChart($('ts-chart'),series,{formatX:dateShort,formatY:y=>metricFmt(s.metric,y),formatTooltipY:y=>metricFmt(s.metric,y),ySuffix:'',zeroLine:m.direction==='target',tooltipTitle:m.short,emptyMessage:'N/A — choose models or select a metric with available verification data.',interactive:true,maxSegmentGap:1.5*86400000,xAxisLabel:'Date',yAxisLabel:metricAxisLabel(s.metric),exportName:`time-series_${s.metric}_${s.region}_${s.lead}.png`,exportTitle:`Performance Time Series — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${leadText} · ${rangeLabel(s)}`});
+  renderLineChart($('ts-chart'),series,{formatX:dateShort,formatY:y=>metricFmt(s.metric,y),formatTooltipY:y=>metricFmt(s.metric,y),ySuffix:'',zeroLine:m.direction==='target',tooltipTitle:m.short,emptyMessage:'N/A — choose models or select a metric with available verification data.',interactive:true,onSeriesHover:name=>highlightModelChip('ts-model-chips',name),maxSegmentGap:1.5*86400000,xAxisLabel:'Date',yAxisLabel:metricAxisLabel(s.metric),exportName:`time-series_${s.metric}_${s.region}_${s.lead}.png`,exportTitle:`Performance Time Series — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${leadText} · ${rangeLabel(s)}`});
   $('ts-verification-note').textContent=`${metricDirectionText(m)} ${lead==null?'Each date aggregates all available forecast leads.':'Each point uses the selected forecast lead.'}`;
 }
 
@@ -386,6 +424,7 @@ function renderCurrent(){if(state.route==='home')renderHome();else if(state.rout
 
 async function start(){
   initTheme();initNavigation();initHomeControls();initDetailControls();
+  $('skill-significance-toggle').addEventListener('change',event=>{showSkillSignificance=event.target.checked;renderSkill()});
   try{await data.load(CONFIG.defaultRegion);syncDateLimits();updateDataStatus();const initial=location.hash.replace('#/','');setRoute(['home','skill','scorecard','timeseries','methodology','changelog'].includes(initial)?initial:'home',!initial)}
   catch(err){console.error(err);document.querySelector('.status-dot').className='status-dot error';$('data-status').textContent='Data load failed';document.querySelector('.main-content').innerHTML=`<section class="card"><div class="empty">Unable to load the EVS data files. Check deployment and use HTTP(S).</div></section>`}
 }
