@@ -10,14 +10,16 @@ export const CONFIG = {
   scorecardLeads: [24, 72, 120, 168, 240, 360],
   regions: ['Global', 'Northern Hemisphere', 'Southern Hemisphere', 'Tropics'],
 
+  // Fixed model styling for all chart views and exported PNGs.
+  // AIGFS and CMC intentionally share the same color/marker per the supplied standard.
   modelMeta: {
-    GFS:   { family:'Global', color:'#4EA1FF', lightColor:'#0057B8' },
-    AIGFS: { family:'Global', color:'#D66BFF', lightColor:'#8E24AA' },
-    CFS:   { family:'Global', color:'#FFD23F', lightColor:'#946200' },
-    CMC:   { family:'Global', color:'#35D0BA', lightColor:'#00796B' },
-    ECMWF: { family:'Global', color:'#FF7A45', lightColor:'#C2410C' },
-    FNMOC: { family:'Global', color:'#D3E76D', lightColor:'#53670A' },
-    UKMET: { family:'Global', color:'#E981B7', lightColor:'#A01361' }
+    GFS:   { family:'Global', color:'#000000', marker:'o', markerSize:6, lineWidth:3 },
+    AIGFS: { family:'Global', color:'#1e3cff', marker:'X', markerSize:7, lineWidth:1.5 },
+    CFS:   { family:'Global', color:'#56b4e9', marker:'o', markerSize:6, lineWidth:1.5 },
+    CMC:   { family:'Global', color:'#1e3cff', marker:'X', markerSize:7, lineWidth:1.5 },
+    ECMWF: { family:'Global', color:'#fb2020', marker:'^', markerSize:7, lineWidth:1.5 },
+    FNMOC: { family:'Global', color:'#00dc00', marker:'P', markerSize:7, lineWidth:1.5 },
+    UKMET: { family:'Global', color:'#e69f00', marker:'o', markerSize:7, lineWidth:1.5 }
   },
 
   variables: {

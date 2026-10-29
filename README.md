@@ -1,4 +1,4 @@
-# OMD Model Performance Dashboard — 1.0.0
+# OMD Model Performance Dashboard — 1.0.1
 
 A static, responsive dashboard for comparing available **NOAA OMD Evaluation and Verification System (EVS)** summary statistics for global guidance systems. The interface offers Home rankings, Skill vs Lead, Scorecard, Time Series, Methodology, and Changelog, with a persistent dark/light theme and interactive charts.
 
@@ -19,6 +19,23 @@ A static, responsive dashboard for comparing available **NOAA OMD Evaluation and
 | Metric menus | Unavailable metrics remain listed with `— N/A` and cannot be selected |
 
 Time Series displays absolute verification statistics. Home ranks models by their available absolute scores; its scorecard and Skill vs Lead show baseline-relative comparisons using date- and lead-matched scores. Detailed pages offer **Standard** and **Strict** comparison settings. The Methodology page explains how to interpret these displays without implementation-specific terminology.
+
+
+## Model display conventions (1.0.1)
+
+Line styles apply consistently to interactive charts and downloaded PNG images. Plotting backgrounds are light in both dark and light modes to keep the standard black GFS trace visible.
+
+| Model | Color | Marker | Marker size | Line width |
+|---|---|---|---:|---:|
+| GFS | `#000000` | Circle | 6 | 3 |
+| AIGFS | `#1e3cff` | X | 7 | 1.5 |
+| CFS | `#56b4e9` | Circle | 6 | 1.5 |
+| CMC | `#1e3cff` | X | 7 | 1.5 |
+| ECMWF | `#fb2020` | Triangle | 7 | 1.5 |
+| FNMOC | `#00dc00` | Filled plus | 7 | 1.5 |
+| UKMET | `#e69f00` | Circle | 7 | 1.5 |
+
+AIGFS and CMC intentionally have matching line and marker styles, as requested. Notable Signals uses scorecard blue for positive changes and red for negative changes. No statistics or importer behavior are changed in this release.
 
 ## Quick start: place on GitHub or a web server
 
@@ -95,10 +112,15 @@ CHANGELOG.md
 
 No startup server scripts or top-level enclosing directory are included. No login credentials, SSH keys, or locally downloaded raw `.stat` files are included.
 
+## Release 1.0.1 — model display styling
+
+- Applied standard model color/marker/width settings across charts and PNG exports.
+- Adjusted plot backgrounds for black GFS visibility in dark mode and aligned Notable Signals arrows with scorecard blue/red.
+
 ## Release 1.0.0 — first user release
 
 - Custom Range now presents compact Start Date and End Date fields without stretching them to fill large grid columns. The standard 7/15/30/60/90-day selection layout is unchanged.
-- The in-app Changelog, footer, and documentation use **1.0.0** as the current release. Earlier development builds are listed as **0.N.0** (for example, the former development build 32 is now recorded as **0.32.0**).
+- Release **1.0.0** established the first public versioning scheme. Earlier development builds are listed as **0.N.0** (for example, the former development build 32 is recorded as **0.32.0**).
 - The dashboard remains static and can be deployed from GitHub or a web server without a build step. Verification calculations, metric availability handling, and Python 3.6-compatible cron workflow are unchanged.
 - **The full package contains empty regional CSV placeholders**. For an existing live installation, use the update-only ZIP or preserve your real `data/` files before replacing anything.
 

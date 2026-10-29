@@ -22,7 +22,8 @@ const state={
 };
 
 function currentTheme(){return document.documentElement.dataset.theme==='light'?'light':'dark'}
-function modelColor(model){const m=CONFIG.modelMeta[model];return currentTheme()==='light'?(m.lightColor||m.color):m.color}
+function modelColor(model){return CONFIG.modelMeta[model].color}
+function chartModelStyle(model){const {marker,markerSize,lineWidth}=CONFIG.modelMeta[model];return {marker,markerSize,lineWidth}}
 function metricFmt(metricKey,value){const m=CONFIG.metrics[metricKey];return Number.isFinite(value)?`${value.toFixed(m.decimals)}${m.unit}`:'N/A'}
 function metricAxisLabel(metricKey){
   const m=CONFIG.metrics[metricKey],unit=(m.unit||'').trim();
@@ -271,7 +272,7 @@ function renderHomePerformance(vis,w){
     if(entries.length<2)continue; // do not claim a rank when only one model has data
     entries.forEach((entry,index)=>rankSeries.get(entry.model).push({x,y:index+1,label:dateFull(x)}));
   }
-  const series=vis.map(model=>({name:model,color:modelColor(model),data:rankSeries.get(model)}));
+  const series=vis.map(model=>({name:model,color:modelColor(model),...chartModelStyle(model),data:rankSeries.get(model)}));
   const chart=$('home-performance-chart');
   const setRankHighlight=name=>{list.querySelectorAll('.home-rank-row').forEach(row=>row.classList.toggle('highlighted',!!name&&row.dataset.model===name));list.classList.toggle('has-highlight',!!name)};
   renderLineChart(chart,series,{formatX:dateShort,formatY:y=>String(Math.round(y)),formatTooltipY:y=>`Rank ${Math.round(y)}`,ySuffix:'',zeroLine:false,tooltipTitle:`${m.short} rank`,emptyMessage:'N/A — no verification data for the selected metric, region, dates and forecast lead.',onSeriesHover:setRankHighlight,showLegend:false,maxSegmentGap:1.5*86400000,xAxisLabel:'Date',yAxisLabel:'Model Rank (1 = Best)',yDomain:[1,vis.length],yTickValues:vis.map((_,i)=>i+1),reverseY:true,interactive:true,exportName:`model-rank-history_${metric}_${s.region}.png`,exportTitle:`Model Rank History — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${rangeLabel(s)} · ${leadText}`});
@@ -301,7 +302,7 @@ function renderCategorySummary(vis,w){
 function renderSkill(){
   const s=state.skill;if(!ensureRegionReady(s.region,renderSkill))return;populateVariableMetric('skill-variable-filter','skill-metric-filter',s);$('skill-region-filter').value=s.region;$('skill-baseline-filter').value=s.baseline;$('skill-comparison-filter').value=s.comparisonMode;$('skill-period-filter').value=s.period;setCustomVisible('skill',s);renderChips('skill-model-chips',MODELS,s.models,next=>{s.models=next;renderSkill()});
   const m=CONFIG.metrics[s.metric],v=variableForMetric(s.metric),w=rangeArgs(s);$('skill-chart-title').textContent=`${v.label} — ${m.metricType}`;$('skill-chart-subtitle').textContent=`${s.region} · percent improvement versus ${s.baseline} · ${rangeLabel(s)}`;
-  const series=s.models.map(model=>({name:model,color:modelColor(model),data:data.skillByLead({...w,model,baseline:s.baseline,metric:s.metric,region:s.region,comparisonMode:s.comparisonMode}).map(d=>({x:d.lead/24,y:d.value,label:`Day ${Number(d.lead/24).toFixed(Number.isInteger(d.lead/24)?0:1)} · ${d.lead} h`}))}));
+  const series=s.models.map(model=>({name:model,color:modelColor(model),...chartModelStyle(model),data:data.skillByLead({...w,model,baseline:s.baseline,metric:s.metric,region:s.region,comparisonMode:s.comparisonMode}).map(d=>({x:d.lead/24,y:d.value,label:`Day ${Number(d.lead/24).toFixed(Number.isInteger(d.lead/24)?0:1)} · ${d.lead} h`}))}));
   renderLineChart($('skill-chart'),series,{formatX:x=>String(Math.round(x)),xDomain:[0,15],xTickValues:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],xAxisLabel:'Forecast Lead Time (Days)',yAxisLabel:`Skill vs ${s.baseline} (%)`,ySuffix:'%',zeroLine:true,tooltipTitle:m.short,emptyMessage:'N/A — choose models or select a metric with available verification data.',interactive:true,exportName:`skill-vs-lead_${s.metric}_${s.region}.png`,exportTitle:`Skill vs Forecast Lead — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${rangeLabel(s)} · Baseline: ${s.baseline}`});
   $('skill-verification-note').textContent=`${metricDirectionText(m)} Positive skill means improvement relative to ${s.baseline}.`;
   renderComparisonCoverage('skill',{...w,region:s.region,metric:s.metric,baseline:s.baseline,comparisonMode:s.comparisonMode});
@@ -333,7 +334,7 @@ function renderTimeSeries(){
   const s=state.ts;if(!ensureRegionReady(s.region,renderTimeSeries))return;populateVariableMetric('ts-variable-filter','ts-metric-filter',s);$('ts-region-filter').value=s.region;$('ts-lead-filter').value=s.lead;$('ts-period-filter').value=s.period;setCustomVisible('ts',s);renderChips('ts-model-chips',MODELS,s.models,next=>{s.models=next;renderTimeSeries()});
   const m=CONFIG.metrics[s.metric],v=variableForMetric(s.metric),lead=s.lead==='all'?null:s.lead,w=rangeArgs(s),leadText=lead==null?'All forecast leads':`${leadLabel(lead)} · ${lead} h`;
   $('ts-chart-title').textContent=`${v.label} — ${m.metricType}`;$('ts-chart-subtitle').textContent=`${s.region} · ${leadText} · ${rangeLabel(s)}`;
-  const series=s.models.map(model=>({name:model,color:modelColor(model),data:data.dailyValueSeries({...w,model,metric:s.metric,region:s.region,lead}).map(d=>({x:d.date.getTime(),y:d.value,label:dateFull(d.date.getTime())}))}));
+  const series=s.models.map(model=>({name:model,color:modelColor(model),...chartModelStyle(model),data:data.dailyValueSeries({...w,model,metric:s.metric,region:s.region,lead}).map(d=>({x:d.date.getTime(),y:d.value,label:dateFull(d.date.getTime())}))}));
   renderLineChart($('ts-chart'),series,{formatX:dateShort,formatY:y=>metricFmt(s.metric,y),formatTooltipY:y=>metricFmt(s.metric,y),ySuffix:'',zeroLine:m.direction==='target',tooltipTitle:m.short,emptyMessage:'N/A — choose models or select a metric with available verification data.',interactive:true,maxSegmentGap:1.5*86400000,xAxisLabel:'Date',yAxisLabel:metricAxisLabel(s.metric),exportName:`time-series_${s.metric}_${s.region}_${s.lead}.png`,exportTitle:`Performance Time Series — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${leadText} · ${rangeLabel(s)}`});
   $('ts-verification-note').textContent=`${metricDirectionText(m)} ${lead==null?'Each date aggregates all available forecast leads.':'Each point uses the selected forecast lead.'}`;
 }

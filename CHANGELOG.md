@@ -2,6 +2,13 @@
 
 Version **1.0.0** is the first public release. Earlier internal development builds previously labeled `vN` are recorded as `0.N.0` to distinguish them from the user release.
 
+## 1.0.1 — October 29, 2026
+- Applied fixed model colors, marker shapes (circle, X, triangle, filled plus), marker sizes and line widths in Home Ranking, Skill vs Lead and Time Series; PNG export and chart hover markers match the screen.
+- GFS now uses its requested solid black 3 px trace. Plot backgrounds are light in both themes so black remains visible on dark-themed pages. Model selection swatches have visible outlines on dark controls.
+- Updated Notable Signals arrows to the scorecards' positive-blue / negative-red convention.
+- No changes to verification calculations, underlying CSV files, metric availability, ingest/cron scripts, or aggregation logic.
+- AIGFS and CMC deliberately share the same blue and X marker, as specified.
+
 ## 1.0.0 — October 28, 2026
 - First public release of the OMD Model Performance Dashboard.
 - Compact Custom Range date-picker fields on Home, Skill vs Lead, Scorecard, and Time Series so Start Date and End Date inputs do not expand to fill oversized grid columns.
