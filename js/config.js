@@ -11,10 +11,10 @@ export const CONFIG = {
   regions: ['Global', 'Northern Hemisphere', 'Southern Hemisphere', 'Tropics'],
 
   // Fixed model styling for all chart views and exported PNGs.
-  // AIGFS and CMC intentionally share the same color/marker per the supplied standard.
+  // AIGFS has its own purple color; CMC retains blue. Both use an X marker.
   modelMeta: {
     GFS:   { family:'Global', color:'#000000', marker:'o', markerSize:7, lineWidth:3 },
-    AIGFS: { family:'Global', color:'#1e3cff', marker:'X', markerSize:7, lineWidth:1.5 },
+    AIGFS: { family:'Global', color:'#8400c8', marker:'X', markerSize:7, lineWidth:1.5 },
     CFS:   { family:'Global', color:'#56b4e9', marker:'o', markerSize:7, lineWidth:1.5 },
     CMC:   { family:'Global', color:'#1e3cff', marker:'X', markerSize:7, lineWidth:1.5 },
     ECMWF: { family:'Global', color:'#fb2020', marker:'^', markerSize:7, lineWidth:1.5 },

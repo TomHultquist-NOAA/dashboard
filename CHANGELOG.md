@@ -2,6 +2,10 @@
 
 Version **1.0.0** is the first public release. Earlier internal development builds previously labeled `vN` are recorded as `0.N.0` to distinguish them from the user release.
 
+## 1.0.6 — October 29, 2026
+- Changed AIGFS from blue `#1e3cff` to purple `#8400c8` throughout charts, model chips, and PNG exports.
+- CMC stays blue; no other model styles, statistics, imports, or scheduled updates changed.
+
 ## 1.0.5 — October 29, 2026
 - Reduced the dark-mode GFS light outline: line under-stroke adds just 1.0 px overall (previously 2.2 px); marker borders are now 0.65 px (previously 1.1 px).
 - Shared renderer ensures the finer outline applies consistently to all interactive SVG plots, hover markers and downloaded PNGs. Other model styles and light mode are unchanged.

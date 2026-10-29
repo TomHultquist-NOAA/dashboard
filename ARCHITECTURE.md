@@ -1,4 +1,4 @@
-# Architecture — OMD Model Performance Dashboard 1.0.5
+# Architecture — OMD Model Performance Dashboard 1.0.6
 
 ## Data pipeline
 
@@ -39,6 +39,6 @@ The scheduler recomputes the rolling 90-day output into a temporary working dire
 
 The dashboard and Python ingestion logic were developed against retrieved example files and representative multi-model datasets. The user confirmed a successful ingest report with 1,848 files parsed, seven models, three products and 88 dates on their system. The actual generated CSVs were not uploaded into this environment for this release, so a full source-data/visual validation against that archive was not possible. The current package intentionally retains no synthetic scores.
 
-## Chart styling (1.0.5)
+## Chart styling (1.0.6)
 
-`js/config.js` stores the single canonical style specification per model (`color`, `marker`, `markerSize`, `lineWidth`). `js/app.js` forwards that styling to the shared SVG and Canvas renderers in `js/charts.js`, so PNG export matches the interactive displays. The dark-theme plot field uses the original deep navy (`#091524`) and the light theme uses white. Only black GFS uses a fine light under-stroke (1.0 px added line width) and 0.65 px marker border in dark mode; other models are unoutlined. Light mode applies no line or marker outlines. The shared SVG renderer and Canvas PNG exporter use the same styling rule. All markers have nominal size 7, while line widths and markers retain model-specific styling. Notable Signals selects the six strongest changes by absolute magnitude, ensuring at least one of each direction when both are available, and uses the scorecard blue/red shade scale to indicate change magnitude. These presentation changes do not alter verification data.
+`js/config.js` stores the single canonical style specification per model (`color`, `marker`, `markerSize`, `lineWidth`). `js/app.js` forwards that styling to the shared SVG and Canvas renderers in `js/charts.js`, so PNG export matches the interactive displays. The dark-theme plot field uses the original deep navy (`#091524`) and the light theme uses white. Only black GFS uses a fine light under-stroke (1.0 px added line width) and 0.65 px marker border in dark mode; other models are unoutlined. Light mode applies no line or marker outlines. The shared SVG renderer and Canvas PNG exporter use the same styling rule. All markers have nominal size 7, while line widths and markers retain model-specific styling. In 1.0.6, AIGFS uses `#8400c8` and CMC retains `#1e3cff`. Notable Signals selects the six strongest changes by absolute magnitude, ensuring at least one of each direction when both are available, and uses the scorecard blue/red shade scale to indicate change magnitude. These presentation changes do not alter verification data.

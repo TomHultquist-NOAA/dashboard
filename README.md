@@ -1,4 +1,4 @@
-# OMD Model Performance Dashboard — 1.0.5
+# OMD Model Performance Dashboard — 1.0.6
 
 A static, responsive dashboard for comparing available **NOAA OMD Evaluation and Verification System (EVS)** summary statistics for global guidance systems. The interface offers Home rankings, Skill vs Lead, Scorecard, Time Series, Methodology, and Changelog, with a persistent dark/light theme and interactive charts.
 
@@ -21,21 +21,21 @@ A static, responsive dashboard for comparing available **NOAA OMD Evaluation and
 Time Series displays absolute verification statistics. Home ranks models by their available absolute scores; its scorecard and Skill vs Lead show baseline-relative comparisons using date- and lead-matched scores. Detailed pages offer **Standard** and **Strict** comparison settings. The Methodology page explains how to interpret these displays without implementation-specific terminology.
 
 
-## Model display conventions (1.0.5)
+## Model display conventions (1.0.6)
 
 Line styles apply consistently to interactive charts and downloaded PNG images. The dark theme uses the original deep-navy plot background; the light theme retains white. A very fine light under-stroke (1.0 px total added width, approximately 0.5 px per side) is applied to the **black GFS line only in dark mode**, with a 0.65 px light border on its circular markers. AIGFS and the other models keep their original unoutlined styles in dark mode. **No line or marker receives an outline in light mode**. Both live charts and downloaded PNGs use these same rules. All model markers use the same nominal size (7).
 
 | Model | Color | Marker | Marker size | Line width |
 |---|---|---|---:|---:|
 | GFS | `#000000` | Circle | 7 | 3 |
-| AIGFS | `#1e3cff` | X | 7 | 1.5 |
+| AIGFS | `#8400c8` | X | 7 | 1.5 |
 | CFS | `#56b4e9` | Circle | 7 | 1.5 |
 | CMC | `#1e3cff` | X | 7 | 1.5 |
 | ECMWF | `#fb2020` | Triangle | 7 | 1.5 |
 | FNMOC | `#00dc00` | Filled plus | 7 | 1.5 |
 | UKMET | `#e69f00` | Circle | 7 | 1.5 |
 
-AIGFS and CMC intentionally have matching line and marker styles, as requested. Notable Signals uses scorecard blues for positive changes and reds for negative changes, with shade intensity reflecting relative magnitude. The list includes both directions when both exist. Declining signals consistently use white arrow glyphs over graduated reds, with a subtle shadow for contrast on paler reds. No statistics or importer behavior are changed in this release.
+AIGFS uses purple (`#8400c8`), while CMC retains blue (`#1e3cff`); both use the X marker and 1.5-px line width. Notable Signals uses scorecard blues for positive changes and reds for negative changes, with shade intensity reflecting relative magnitude. The list includes both directions when both exist. Declining signals consistently use white arrow glyphs over graduated reds, with a subtle shadow for contrast on paler reds. No statistics or importer behavior are changed in this release.
 
 ## Quick start: place on GitHub or a web server
 
@@ -111,6 +111,11 @@ CHANGELOG.md
 ```
 
 No startup server scripts or top-level enclosing directory are included. No login credentials, SSH keys, or locally downloaded raw `.stat` files are included.
+
+## Release 1.0.6 — AIGFS color update
+
+- Changed AIGFS to purple `#8400c8` across all interactive charts, model controls, and exported PNGs.
+- CMC retains blue `#1e3cff`. Model shapes, marker sizes, line widths, theme outlines, verification calculations, and ingestion/cron processes are unchanged.
 
 ## Release 1.0.5 — finer dark-mode GFS outline
 
