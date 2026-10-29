@@ -53,37 +53,49 @@ function splitAtDataGaps(points,maxSegmentGap){
   if(segment.length)segments.push(segment);
   return segments;
 }
+// Preserve configured line colors while adding a thin contrasting edge only
+// for colors with low contrast against the current plot surface.
+function chartLuminance(color){
+  const hex=String(color).trim().replace('#','');
+  if(!/^[0-9a-f]{6}$/i.test(hex))return 0;
+  const linear=[0,2,4].map(i=>{const v=parseInt(hex.slice(i,i+2),16)/255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4)});
+  return .2126*linear[0]+.7152*linear[1]+.0722*linear[2];
+}
+function chartNeedsOutline(color){
+  const a=chartLuminance(color),b=chartLuminance(cssVar('--chart-bg','#ffffff'));
+  return (Math.max(a,b)+.05)/(Math.min(a,b)+.05)<2.5;
+}
 // Marker conventions match the configured Matplotlib styles: o, X, ^, P.
 function seriesMarkerSize(s,scale=1){return (Number(s.markerSize)||6)*scale/2}
-function svgMarker(cx,cy,s,scale=1,cls='series-marker'){
+function svgMarker(cx,cy,s,scale=1,cls='series-marker',outline=false){
   const r=seriesMarkerSize(s,scale),c=s.color,shape=s.marker||'o';
   let mark;
   if(shape==='X'){
     const a=r*.82,sw=Math.max(1.6,r*.74);
-    mark=`<path d="M${-a} ${-a}L${a} ${a}M${-a} ${a}L${a} ${-a}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="square"/>`;
+    mark=`<path d="M${-a} ${-a}L${a} ${a}M${-a} ${a}L${a} ${-a}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="square"${outline?' style="paint-order:stroke;stroke-linejoin:round;filter:drop-shadow(0 0 1px #203348)"':''}/>`;
   }else if(shape==='^'){
-    mark=`<polygon points="0,${-r} ${r*.95},${r*.9} ${-r*.95},${r*.9}" fill="${c}"/>`;
+    mark=`<polygon points="0,${-r} ${r*.95},${r*.9} ${-r*.95},${r*.9}" fill="${c}"${outline?' stroke="#27394d" stroke-width=".85"':''}/>`;
   }else if(shape==='P'){
     const a=r*.93,sw=Math.max(1.8,r*.88);
     mark=`<path d="M0 ${-a}V${a}M${-a} 0H${a}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="square"/>`;
   }else{
-    mark=`<circle cx="0" cy="0" r="${r}" fill="${c}"/>`;
+    mark=`<circle cx="0" cy="0" r="${r}" fill="${c}"${outline?' stroke="#27394d" stroke-width=".85"':''}/>`;
   }
   return `<g class="${cls}" transform="translate(${cx} ${cy})">${mark}</g>`;
 }
-function canvasMarker(ctx,x,y,s,scale=1){
+function canvasMarker(ctx,x,y,s,scale=1,outline=false){
   const r=seriesMarkerSize(s,scale),shape=s.marker||'o';
-  ctx.save();ctx.translate(x,y);ctx.fillStyle=s.color;ctx.strokeStyle=s.color;
+  ctx.save();ctx.translate(x,y);ctx.fillStyle=s.color;ctx.strokeStyle=s.color;if(outline){ctx.shadowColor='rgba(22,40,60,.7)';ctx.shadowBlur=1.5;}
   if(shape==='X'){
     const a=r*.82;ctx.lineWidth=Math.max(1.6,r*.74);ctx.lineCap='square';
     ctx.beginPath();ctx.moveTo(-a,-a);ctx.lineTo(a,a);ctx.moveTo(-a,a);ctx.lineTo(a,-a);ctx.stroke();
   }else if(shape==='^'){
-    ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(r*.95,r*.9);ctx.lineTo(-r*.95,r*.9);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(r*.95,r*.9);ctx.lineTo(-r*.95,r*.9);ctx.closePath();ctx.fill();if(outline){ctx.shadowBlur=0;ctx.strokeStyle="#27394d";ctx.lineWidth=.85;ctx.stroke();}
   }else if(shape==='P'){
     const a=r*.93;ctx.lineWidth=Math.max(1.8,r*.88);ctx.lineCap='square';
     ctx.beginPath();ctx.moveTo(0,-a);ctx.lineTo(0,a);ctx.moveTo(-a,0);ctx.lineTo(a,0);ctx.stroke();
   }else{
-    ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();if(outline){ctx.shadowBlur=0;ctx.strokeStyle="#27394d";ctx.lineWidth=.85;ctx.stroke();}
   }
   ctx.restore();
 }
@@ -129,11 +141,14 @@ function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTic
   ctx.beginPath();ctx.rect(p.l,p.t,width-p.l-p.r,height-p.t-p.b);ctx.clip();
   for(const s of series){
     const pts=s.data.filter(d=>Number.isFinite(d.x)&&Number.isFinite(d.y));if(!pts.length)continue;
-    ctx.strokeStyle=s.color;ctx.lineWidth=Number(s.lineWidth)||1.5;ctx.lineJoin='round';ctx.lineCap='round';
+    const contrastEdge=chartNeedsOutline(s.color),lineWidth=Number(s.lineWidth)||1.5;
+    ctx.lineJoin='round';ctx.lineCap='round';
     for(const segment of splitAtDataGaps(pts,maxSegmentGap)){
-      ctx.beginPath();segment.forEach((d,i)=>{const x=sx(d.x),y=sy(d.y);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.stroke();
+      ctx.beginPath();segment.forEach((d,i)=>{const x=sx(d.x),y=sy(d.y);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});
+      if(contrastEdge){ctx.strokeStyle='rgba(25,42,62,.70)';ctx.lineWidth=lineWidth+1.8;ctx.stroke()}
+      ctx.strokeStyle=s.color;ctx.lineWidth=lineWidth;ctx.stroke();
     }
-    for(const d of pts)canvasMarker(ctx,sx(d.x),sy(d.y),s)
+    for(const d of pts)canvasMarker(ctx,sx(d.x),sy(d.y),s,1,contrastEdge)
   }
   ctx.restore();
 
@@ -196,8 +211,13 @@ export function renderLineChart(container,series,{
       const visiblePts=s.data.filter(d=>Number.isFinite(d.x)&&Number.isFinite(d.y));
       const segments=splitAtDataGaps(visiblePts,maxSegmentGap);
       const width=Number(s.lineWidth)||1.5;
-      const paths=segments.map(segment=>`<polyline class="series-line" fill="none" stroke="${s.color}" stroke-width="${width}" data-base-width="${width}" points="${segment.map(d=>`${sx(d.x)},${sy(d.y)}`).join(' ')}" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
-      const markers=visiblePts.map(d=>svgMarker(sx(d.x),sy(d.y),s)).join('');
+      const contrastEdge=chartNeedsOutline(s.color);
+      const paths=segments.map(segment=>{
+        const points=segment.map(d=>`${sx(d.x)},${sy(d.y)}`).join(' ');
+        const edge=contrastEdge?`<polyline class="series-edge" fill="none" stroke="rgba(25,42,62,.70)" stroke-width="${width+1.8}" points="${points}" stroke-linecap="round" stroke-linejoin="round"/>`:'';
+        return `${edge}<polyline class="series-line" fill="none" stroke="${s.color}" stroke-width="${width}" data-base-width="${width}" points="${points}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      }).join('');
+      const markers=visiblePts.map(d=>svgMarker(sx(d.x),sy(d.y),s,1,'series-marker',contrastEdge)).join('');
       if(!paths)return'';
       return `<g class="chart-series" data-series="${esc(s.name)}" clip-path="url(#${clipId})">${paths}${markers}</g>`;
     }).join('');

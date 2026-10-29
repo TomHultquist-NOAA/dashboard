@@ -2,6 +2,13 @@
 
 Version **1.0.0** is the first public release. Earlier internal development builds previously labeled `vN` are recorded as `0.N.0` to distinguish them from the user release.
 
+## 1.0.2 — October 29, 2026
+- Darkened the plot background in dark mode to a muted steel gray while preserving black GFS visibility; subtle contrast outlines keep lighter model traces readable in live charts and exported PNGs.
+- Standardized the marker size to 7 for all seven models, keeping each requested line width, marker shape, and model color.
+- Notable Signals now uses the existing diverging scorecard palette with blue/red intensity reflecting the magnitude of each displayed change.
+- Signal selection reserves up to three improvement and three decline slots, filling remaining slots with the strongest changes; both directions are included whenever both exist.
+- Updated user Methodology, in-app and repository Changelog, README and version labeling. No change to EVS ingestion, cron, verification computations, or saved data.
+
 ## 1.0.1 — October 29, 2026
 - Applied fixed model colors, marker shapes (circle, X, triangle, filled plus), marker sizes and line widths in Home Ranking, Skill vs Lead and Time Series; PNG export and chart hover markers match the screen.
 - GFS now uses its requested solid black 3 px trace. Plot backgrounds are light in both themes so black remains visible on dark-themed pages. Model selection swatches have visible outlines on dark controls.

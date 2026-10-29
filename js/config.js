@@ -13,9 +13,9 @@ export const CONFIG = {
   // Fixed model styling for all chart views and exported PNGs.
   // AIGFS and CMC intentionally share the same color/marker per the supplied standard.
   modelMeta: {
-    GFS:   { family:'Global', color:'#000000', marker:'o', markerSize:6, lineWidth:3 },
+    GFS:   { family:'Global', color:'#000000', marker:'o', markerSize:7, lineWidth:3 },
     AIGFS: { family:'Global', color:'#1e3cff', marker:'X', markerSize:7, lineWidth:1.5 },
-    CFS:   { family:'Global', color:'#56b4e9', marker:'o', markerSize:6, lineWidth:1.5 },
+    CFS:   { family:'Global', color:'#56b4e9', marker:'o', markerSize:7, lineWidth:1.5 },
     CMC:   { family:'Global', color:'#1e3cff', marker:'X', markerSize:7, lineWidth:1.5 },
     ECMWF: { family:'Global', color:'#fb2020', marker:'^', markerSize:7, lineWidth:1.5 },
     FNMOC: { family:'Global', color:'#00dc00', marker:'P', markerSize:7, lineWidth:1.5 },

@@ -1,4 +1,4 @@
-# Architecture — OMD Model Performance Dashboard 1.0.1
+# Architecture — OMD Model Performance Dashboard 1.0.2
 
 ## Data pipeline
 
@@ -39,6 +39,6 @@ The scheduler recomputes the rolling 90-day output into a temporary working dire
 
 The dashboard and Python ingestion logic were developed against retrieved example files and representative multi-model datasets. The user confirmed a successful ingest report with 1,848 files parsed, seven models, three products and 88 dates on their system. The actual generated CSVs were not uploaded into this environment for this release, so a full source-data/visual validation against that archive was not possible. The current package intentionally retains no synthetic scores.
 
-## Chart styling (1.0.1)
+## Chart styling (1.0.2)
 
-`js/config.js` stores the single canonical style specification per model (`color`, `marker`, `markerSize`, `lineWidth`). `js/app.js` forwards that styling to the shared SVG and Canvas renderers in `js/charts.js`, so PNG export matches the interactive displays. The plotting canvas is light in both themes to support an exactly black GFS trace, and Notable Signals uses the scorecard blue/red direction convention. These presentation changes do not alter verification data.
+`js/config.js` stores the single canonical style specification per model (`color`, `marker`, `markerSize`, `lineWidth`). `js/app.js` forwards that styling to the shared SVG and Canvas renderers in `js/charts.js`, so PNG export matches the interactive displays. The dark-theme plot field uses muted steel gray (`#bfcbda`) to maintain a readable exactly black GFS trace; the light theme uses white. Lighter traces receive subtle outlines in live SVG charts and PNG exports. All markers have nominal size 7, while line widths and markers retain model-specific styling. Notable Signals selects up to three changes in each direction before filling any remaining slots, and uses the scorecard blue/red shade scale to indicate change magnitude. These presentation changes do not alter verification data.

@@ -97,7 +97,7 @@
 
           <section class="content-grid home-primary-grid">
             <article class="card">
-              <header class="card-header"><div><h2>Notable Signals</h2><p>Largest recent changes in model behavior relative to the preceding 15-day verification window.</p></div><span class="tag">automated triage</span></header>
+              <header class="card-header"><div><h2>Notable Signals</h2><p>Recent improvements and declines versus the preceding 15-day window; deeper blue/red shades indicate larger changes.</p></div><span class="tag">automated triage</span></header>
               <div id="signals-list" class="signal-list"></div>
             </article>
             <article class="card">
@@ -248,7 +248,7 @@
 
               <section class="reference-section card" id="method-signals">
                 <div class="section-kicker">07 / CAUTIONS</div><h3>Notable Signals and limitations</h3>
-                <p>Home's Notable Signals compares each model's most recent <strong>15-day period</strong> with its <strong>preceding 15-day period</strong>, across selected headline metrics. Arrows are based on the direction of improvement; green means improved and red means degraded. Signals indicate <strong>changes in recent summary performance</strong>, not statistically confirmed trends or operational alerts.</p>
+                <p>Home's Notable Signals compares each model's most recent <strong>15-day period</strong> with its <strong>preceding 15-day period</strong>, across selected headline metrics. Arrows indicate the direction of change: blue means improved and red means degraded. Darker shades indicate larger percentage changes; the section includes both directions when available. Signals indicate <strong>changes in recent summary performance</strong>, not statistically confirmed trends or operational alerts.</p>
                 <ul><li>Small differences in scores do not necessarily imply a statistically meaningful difference in forecast quality.</li><li>Performance depends on the metric, geographic region, forecast lead, verification period, and reference dataset.</li><li>Not all models may have comparable data for every metric or date.</li><li>Combining multiple forecast leads can obscure meaningful lead-specific differences.</li></ul>
               </section>
 </div>
@@ -261,12 +261,13 @@
               <div class="reference-eyebrow">REFERENCE / 02</div>
               <h2>Changelog</h2>
               <p>Dashboard updates and release history, newest first.</p>
-              <div class="reference-pills"><span>Current version · 1.0.1</span><span>Model styling update</span></div>
+              <div class="reference-pills"><span>Current version · 1.0.2</span><span>Plot contrast and signals</span></div>
             </div>
             <div class="reference-hero-symbol" aria-hidden="true">↻</div>
           </div>
           <div class="release-list">
-            <article class="release-card card current-release"><div class="release-side"><strong>1.0.1</strong><span class="release-status">Current</span><small>October 29, 2026</small></div><div><h3>Model plot styling and signal colors</h3><p>Applied the standard model color, marker, and line-width conventions to all charts and exported PNGs. Improved dark-theme plot readability for GFS and changed Notable Signals arrows to scorecard blue/red colors.</p></div></article>
+            <article class="release-card card current-release"><div class="release-side"><strong>1.0.2</strong><span class="release-status">Current</span><small>October 29, 2026</small></div><div><h3>Plot contrast and balanced signals</h3><p>Darkened dark-theme plotting areas while keeping black GFS traces readable, made marker sizes uniform, and added contrast edging for light-colored traces. Notable Signals now uses graduated scorecard blue/red shades and shows improvements and declines together when both are available.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.1</strong><small>October 29, 2026</small></div><div><h3>Model plot styling and signal colors</h3><p>Applied the standard model color, marker, and line-width conventions to all charts and exported PNGs. Improved dark-theme plot readability for GFS and changed Notable Signals arrows to scorecard blue/red colors.</p></div></article>
             <article class="release-card card"><div class="release-side"><strong>1.0.0</strong><small>October 28, 2026</small></div><div><h3>First public release</h3><p>Prepared the dashboard for users with compact Custom Range date controls across all four pages, consistent release numbering, and updated user and GitHub documentation. Verification calculations and available datasets are unchanged.</p></div></article>
             <article class="release-card card"><div class="release-side"><strong>0.32.0</strong><small>October 28, 2026</small></div><div><h3>Documentation and scheduled data updates</h3><p>Refreshed the Methodology, Changelog, and deployment documentation. Added a validated daily-update workflow to publish new verification data to a web server or GitHub. The existing verification displays and calculations remain unchanged.</p></div></article>
             <article class="release-card card"><div class="release-side"><strong>0.31.0</strong><small>October 28, 2026</small></div><div><h3>Clearer metric availability</h3><p>Unavailable metrics and variables remain visible in dropdown menus as N/A but cannot be selected. Options automatically reflect the verification data available for the selected region.</p></div></article>
@@ -300,7 +301,7 @@
       <footer class="app-footer">
         <div>OMD Model Performance Dashboard · EVS summary statistics · Missing data are indicated as N/A.</div>
         <div class="home-footer-extra" aria-label="Dashboard update and contact information">
-          <div>Dashboard last updated: <time datetime="2026-10-29">October 29, 2026</time> (1.0.1) · Latest available verification date: <time id="footer-verification-date">N/A</time></div>
+          <div>Dashboard last updated: <time datetime="2026-10-29">October 29, 2026</time> (1.0.2) · Latest available verification date: <time id="footer-verification-date">N/A</time></div>
           <div>Questions and comments can be directed to <a href="mailto:thomas.hultquist@noaa.gov">Tom Hultquist</a>, Office of Modeling and Development, Evaluation and Verification Unit.</div>
         </div>
       </footer>

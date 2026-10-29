@@ -1,4 +1,4 @@
-# Data format — 1.0.1
+# Data format — 1.0.2
 
 ## Browser-facing normalized CSVs
 

@@ -355,26 +355,24 @@ body:not(.home-route) .app-footer .home-footer-extra{display:none}
 @media(min-width:1131px){.home-floating-selector.static-selector .selector-fields{grid-template-columns:.78fr 1.13fr .98fr 1.70fr .94fr .84fr!important}}
 @media(min-width:901px) and (max-width:1130px){.home-floating-selector.static-selector .selector-fields{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
 
-/* 1.0.1: plot field is light in both themes so the official GFS black line remains readable. */
+/* 1.0.2: muted steel-gray plot field in dark mode; black GFS retains strong contrast. */
 :root{
-  --chart-bg:#edf2f7;
-  --chart-grid:rgba(45,66,89,.17);
-  --chart-grid-soft:rgba(45,66,89,.09);
+  --chart-bg:#bfcbda;
+  --chart-grid:rgba(39,59,81,.21);
+  --chart-grid-soft:rgba(39,59,81,.11);
   --chart-axis:rgba(40,60,83,.48);
   --chart-axis-text:#394e64;
   --chart-zero:rgba(40,58,80,.45);
-  --chart-marker-halo:rgba(255,255,255,.88);
+  --chart-marker-halo:rgba(245,249,254,.85);
   --chart-hover-line:rgba(38,54,74,.65);
   --chart-legend-text:#27394d;
 }
 :root[data-theme="light"]{
   --chart-bg:#ffffff;
 }
-/* Signal blue/red mirrors the positive/negative scorecard ends. */
-.signal-icon.good{color:#92c5de;background:rgba(33,102,172,.24);border:1px solid rgba(67,147,195,.65)}
-.signal-icon.bad{color:#f4a582;background:rgba(178,24,43,.24);border:1px solid rgba(214,72,63,.65)}
-:root[data-theme="light"] .signal-icon.good{color:#2166ac;background:rgba(33,102,172,.11);border-color:rgba(33,102,172,.38)}
-:root[data-theme="light"] .signal-icon.bad{color:#b2182b;background:rgba(178,24,43,.10);border-color:rgba(178,24,43,.38)}
+/* The signal icon uses the exact blue/red diverging scorecard scale. */
+.signal-icon{border:1px solid rgba(20,35,54,.25);transition:background-color .2s ease,color .2s ease}
+:root:not([data-theme="light"]) .signal-icon{box-shadow:0 0 0 1px rgba(230,240,253,.08)}
 /* A black GFS swatch still needs a visible boundary on dark control surfaces. */
 .chip-dot,.rank-model i,.coverage-model-dot,.chart-tooltip-series i{outline:1px solid rgba(158,180,205,.64);outline-offset:1px}
 .chip.active{border-color:color-mix(in srgb,var(--chip-color) 55%,var(--line));}

@@ -292,9 +292,45 @@ function renderHomeScorecard(vis,w){
   }).join('');
   $('home-scorecard-table').innerHTML=`<thead><tr><th>Metric</th>${vis.map(m=>`<th>${m}</th>`).join('')}</tr></thead><tbody>${rows}</tbody>`;
 }
+// Reserve up to three slots for each direction and fill unused slots with the
+// strongest remaining changes. Both directions appear whenever both exist.
+function chooseNotableSignals(candidates,limit=6){
+  const ordered=candidates.filter(s=>Number.isFinite(s.change)&&Math.abs(s.change)>1e-9)
+    .sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)||a.model.localeCompare(b.model)||a.metric.localeCompare(b.metric));
+  const balancedCount=Math.floor(limit/2);
+  const positives=ordered.filter(s=>s.change>0).slice(0,balancedCount);
+  const negatives=ordered.filter(s=>s.change<0).slice(0,balancedCount);
+  const chosen=[...positives,...negatives];
+  const selected=new Set(chosen);
+  for(const s of ordered){if(chosen.length>=limit)break;if(!selected.has(s)){chosen.push(s);selected.add(s)}}
+  return chosen.sort((a,b)=>Math.abs(b.change)-Math.abs(a.change)||a.model.localeCompare(b.model)||a.metric.localeCompare(b.metric));
+}
+function signalGrade(change,maxMagnitude){
+  // Same diverging color stops as the scorecards, with magnitude scaled to
+  // the strongest displayed signal and a small color floor for weak changes.
+  const magnitude=clamp(Math.abs(change)/Math.max(10,maxMagnitude),0,1);
+  return Math.sign(change)*(.34+.66*Math.sqrt(magnitude));
+}
+function signalForeground(color){
+  const nums=color.match(/\d+/g).map(Number),c=nums.map(v=>v/255).map(v=>v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4));
+  const luminance=.2126*c[0]+.7152*c[1]+.0722*c[2];
+  return luminance>.18?'#152236':'#ffffff';
+}
 function renderSignals(vis){
-  const candidates=[];for(const model of vis)for(const metric of homeCoreMetrics()){const change=data.periodChange({model,metric,region:state.home.region,days:15});if(Number.isFinite(change)){const raw=data.aggregateValue({days:15,region:state.home.region,models:[model],metrics:[metric]});candidates.push({model,metric,change,raw})}}
-  candidates.sort((a,b)=>Math.abs(b.change)-Math.abs(a.change));$('signals-list').innerHTML=candidates.length?candidates.slice(0,6).map(s=>{const good=s.change>=0,m=CONFIG.metrics[s.metric];return `<div class="signal"><div class="signal-icon ${good?'good':'bad'}">${good?'▲':'▼'}</div><div><div class="signal-title">${s.model} · ${m.short}</div><div class="signal-desc">${good?'Improved':'Degraded'} ${Math.abs(s.change).toFixed(1)}% versus the preceding 15-day window.</div></div><div class="raw-value">${metricFmt(s.metric,s.raw)}</div></div>`}).join(''):'<div class="empty">N/A — insufficient recent observations to assess changes.</div>';
+  const candidates=[];
+  for(const model of vis)for(const metric of homeCoreMetrics()){
+    const change=data.periodChange({model,metric,region:state.home.region,days:15});
+    if(Number.isFinite(change)){
+      const raw=data.aggregateValue({days:15,region:state.home.region,models:[model],metrics:[metric]});
+      candidates.push({model,metric,change,raw});
+    }
+  }
+  const signals=chooseNotableSignals(candidates);
+  const maxMagnitude=Math.max(0,...signals.map(s=>Math.abs(s.change)));
+  $('signals-list').innerHTML=signals.length?signals.map(s=>{
+    const good=s.change>0,m=CONFIG.metrics[s.metric],shade=heatColor(signalGrade(s.change,maxMagnitude));
+    return `<div class="signal"><div class="signal-icon ${good?'good':'bad'}" style="background:${shade};color:${signalForeground(shade)};border-color:${shade}" title="${good?'Improvement':'Decline'} of ${Math.abs(s.change).toFixed(1)}%">${good?'▲':'▼'}</div><div><div class="signal-title">${s.model} · ${m.short}</div><div class="signal-desc">${good?'Improved':'Degraded'} ${Math.abs(s.change).toFixed(1)}% versus the preceding 15-day window.</div></div><div class="raw-value">${metricFmt(s.metric,s.raw)}</div></div>`;
+  }).join(''):'<div class="empty">N/A — insufficient recent observations to assess changes.</div>';
 }
 function renderCategorySummary(vis,w){
   const cats=['Surface','Upper Air','Precipitation'];$('category-summary').innerHTML=cats.map(cat=>{const mets=homeCoreMetrics().filter(k=>variableForMetric(k).category===cat),scores=[];for(const model of vis)for(const metric of mets){const s=data.skillFor({...w,model,baseline:state.home.baseline,metric,region:state.home.region,comparisonMode:state.home.comparisonMode});if(Number.isFinite(s))scores.push(s)}const leader=vis.map(model=>({model,s:avg(mets.map(metric=>data.skillFor({...w,model,baseline:state.home.baseline,metric,region:state.home.region,comparisonMode:state.home.comparisonMode})).filter(Number.isFinite))})).filter(x=>Number.isFinite(x.s)).sort((a,b)=>b.s-a.s)[0];return `<div class="category-card"><div class="category-title">${cat}</div><div class="category-value">${fmtPct(avg(scores))}</div><div class="category-detail">Leader: ${leader?.model||'N/A'} · ${fmtPct(leader?.s)}</div></div>`}).join('');
