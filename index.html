@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="OMD Model Performance Dashboard using EVS verification statistics.">
+  <title>OMD Model Performance Dashboard</title>
+  <script>
+    (() => {
+      const saved = localStorage.getItem('omd-dashboard-theme');
+      document.documentElement.dataset.theme = saved === 'light' ? 'light' : 'dark';
+    })();
+  </script>
+  <link rel="stylesheet" href="css/styles.css?v=1.1.8">
+</head>
+<body>
+  <div class="app-layout">
+    <aside id="sidebar" class="sidebar" aria-label="Primary navigation">
+      <div class="sidebar-brand">
+        <div class="brand-mark" aria-hidden="true">EVS</div>
+        <div><strong>OMD</strong><span>Model Performance</span></div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-route="home" type="button"><svg viewBox="0 0 24 24"><path d="M3 10.7 12 3l9 7.7v9.1a1.2 1.2 0 0 1-1.2 1.2h-5.2v-6.1H9.4V21H4.2A1.2 1.2 0 0 1 3 19.8z"/></svg><span>Home</span></button>
+        <button class="nav-item" data-route="skill" type="button"><svg viewBox="0 0 24 24"><path d="M3 18 8.2 12.8l3.8 3.8L20.5 8"/><path d="M15.5 8h5v5"/></svg><span>Skill vs Lead</span></button>
+        <button class="nav-item" data-route="scorecard" type="button"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16"/></svg><span>Scorecard</span></button>
+        <button class="nav-item" data-route="timeseries" type="button"><svg viewBox="0 0 24 24"><path d="M4 17.5 8 13l3.2 2.4 4.3-7 4.5 3.1"/><path d="M4 4v16h16"/></svg><span>Time Series</span></button>
+        <div class="nav-group-heading">Reference</div>
+        <button class="nav-item" data-route="methodology" type="button"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v17H6a2 2 0 0 0-2 2z"/><path d="M4 5v15a2 2 0 0 1 2-2h15M8 7h8M8 11h6"/></svg><span>Methodology</span></button>
+        <button class="nav-item" data-route="changelog" type="button"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/><path d="M12 7v5l3 2"/></svg><span>Changelog</span></button>
+      </nav>
+      <div class="sidebar-note"><strong>EVS Data</strong><span>Missing metrics, dates, or model records are displayed as N/A.</span></div>
+    </aside>
+    <button id="sidebar-backdrop" class="sidebar-backdrop" type="button" aria-label="Close navigation"></button>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="menu-toggle" class="icon-button menu-toggle" type="button" aria-label="Open navigation"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+          <div><h1 id="page-title">OMD Model Performance Dashboard</h1><p id="page-subtitle">Rapid model-performance situational awareness using EVS verification statistics</p></div>
+        </div>
+        <div class="topbar-actions">
+          <div class="header-status"><span class="status-dot ok"></span><span id="data-status">Loading data…</span></div>
+          <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode">
+            <span class="theme-icon moon"><svg viewBox="0 0 24 24"><path d="M20.3 15.6A9 9 0 0 1 8.4 3.7a9 9 0 1 0 11.9 11.9Z"/></svg></span>
+            <span class="theme-icon sun"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
+          </button>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <section class="page active" data-page="home">
+          <section class="filter-panel card static-selector home-floating-selector" data-selector-key="home" aria-label="Dashboard filters">
+            <div class="filter-grid selector-fields">
+              <label>Model Group<select id="home-model-group-filter"></select></label>
+              <label>Region<select id="home-region-filter"></select></label>
+              <label>Date Window<select id="home-period-filter"></select></label>
+              <div class="custom-date-pair hidden" role="group" aria-label="Custom date range">
+                <label id="home-start-wrap" class="custom-date hidden">Start Date<input id="home-start-date" type="date"></label>
+                <label id="home-end-wrap" class="custom-date hidden">End Date<input id="home-end-date" type="date"></label>
+              </div>
+              <label class="wide-filter">Primary Metric<select id="home-primary-metric-filter"></select></label>
+              <label>Forecast Lead<select id="home-lead-filter"></select></label>
+              <div class="filter-action"><span>View</span><button id="reset-btn" class="reset-filter-button" type="button">Reset View</button></div>
+            </div>
+          </section>
+
+          <section class="card home-performance-card">
+            <header class="card-header">
+              <div>
+                <h2 id="home-performance-title">Model Performance</h2>
+                <p id="home-performance-subtitle">Daily rank position for each model across the selected verification period.</p>
+              </div>
+            </header>
+            <div class="home-performance-layout">
+              <aside class="home-ranking" aria-label="Model ranking">
+                <div class="home-ranking-head"><span>Rank</span><span id="home-ranking-metric">Score</span></div>
+                <div id="home-ranking-list" class="home-ranking-list"></div>
+              </aside>
+              <div class="home-performance-chart-wrap">
+                <div class="chart-shell home-performance-chart-shell"><div id="home-performance-chart" class="chart home-performance-chart"></div></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card section-card home-scorecard-card">
+            <header class="card-header home-scorecard-header">
+              <div><h2>Verification Scorecard</h2><p>Percent improvement versus the selected model. Blue is better, red is worse, and N/A indicates missing data. The baseline also applies to Category Snapshot below.</p></div>
+              <div class="home-scorecard-actions">
+                <label class="scorecard-baseline-label" for="home-baseline-filter">Baseline<select id="home-baseline-filter" aria-label="Baseline model for Home scorecard and Category Snapshot"></select></label>
+                <button class="text-link" data-go="scorecard" type="button">Open full scorecard →</button>
+              </div>
+            </header>
+            <div class="score-gradient-legend home-gradient"><span>Worse</span><i></i><span>Baseline</span><i class="reverse"></i><span>Better</span></div>
+            <p id="home-scorecard-region-note" class="scorecard-region-note" role="note"></p>
+            <div class="table-wrap compact-home-scorecard"><table id="home-scorecard-table"></table></div>
+          </section>
+
+          <section class="content-grid home-primary-grid">
+            <article class="card">
+              <header class="card-header"><div><h2>Notable Signals</h2><p>Recent improvements and declines versus the preceding 15-day window; deeper blue/red shades indicate larger changes.</p></div><span class="tag">automated triage</span></header>
+              <div id="signals-list" class="signal-list"></div>
+            </article>
+            <article class="card">
+              <header class="card-header"><div><h2>Category Snapshot</h2><p>Average baseline-relative performance by verification category.</p></div></header>
+              <div id="category-summary" class="category-grid"></div>
+            </article>
+          </section>
+
+        </section>
+
+        <section class="page" data-page="skill">
+          <div class="page-heading"><div><h2>Skill vs Forecast Lead</h2><p>Percent improvement or degradation relative to a user-selected baseline model across forecast lead.</p></div></div>
+          <section class="detail-controls card static-selector" data-selector-key="skill">
+            <div class="detail-filter-grid selector-fields">
+              <label>Variable<select id="skill-variable-filter"></select></label>
+              <label>Metric<select id="skill-metric-filter"></select></label>
+              <label>Region<select id="skill-region-filter"></select></label>
+              <label>Baseline<select id="skill-baseline-filter"></select></label>
+              <label>Comparison Method<select id="skill-comparison-filter"></select></label>
+              <label>Date Window<select id="skill-period-filter"></select></label>
+              <div class="custom-date-pair hidden" role="group" aria-label="Custom date range">
+                <label id="skill-start-wrap" class="custom-date hidden">Start Date<input id="skill-start-date" type="date"></label>
+                <label id="skill-end-wrap" class="custom-date hidden">End Date<input id="skill-end-date" type="date"></label>
+              </div>
+            </div>
+          </section>
+          <article class="card detail-chart-card">
+            <header class="card-header stack-mobile"><div><h2 id="skill-chart-title">Skill vs Lead</h2><p id="skill-chart-subtitle"></p></div><div class="selection-actions"><button id="skill-select-all" class="small-button" type="button">Select all</button><button id="skill-clear-all" class="small-button" type="button">Clear</button></div></header>
+            <div id="skill-model-chips" class="chip-row"></div><div class="skill-significance-controls"><label class="significance-toggle"><input id="skill-significance-toggle" type="checkbox"><span>Show EVS-style 95% confidence intervals</span></label><span class="significance-caption" id="skill-significance-status"></span></div><div class="chart-shell detail-chart-shell"><div id="skill-chart" class="chart interactive-chart"></div></div><section id="skill-difference-panel" class="skill-extra-panel hidden" aria-label="EVS-style paired differences">
+              <header class="card-header skill-subchart-header"><div><h3 id="skill-difference-title">Paired Mean Difference</h3><p id="skill-difference-subtitle"></p></div></header>
+              <div class="chart-shell detail-chart-shell"><div id="skill-difference-chart" class="chart interactive-chart"></div></div>
+              <div id="skill-difference-note" class="verification-note"></div>
+            </section><div id="skill-verification-note" class="verification-note"></div><div id="skill-comparison-warning" class="comparison-note" role="note"></div><details id="skill-coverage" class="comparison-coverage"><summary>Data availability <span id="skill-coverage-summary"></span></summary><div id="skill-coverage-table"></div></details>
+          </article>
+          <article class="card detail-chart-card forecast-hour-mean-card">
+            <header class="card-header stack-mobile"><div><h2 id="skill-mean-title">Forecast Hour Mean</h2><p id="skill-mean-subtitle"></p></div></header>
+            <div class="chart-shell detail-chart-shell"><div id="skill-mean-chart" class="chart interactive-chart"></div></div>
+            <div id="skill-mean-note" class="verification-note"></div>
+          </article>
+        </section>
+
+        <section class="page" data-page="scorecard">
+          <div class="page-heading"><div><h2>Scorecard</h2><p>Compact baseline-relative verification panels by variable and metric. Positive values indicate improvement versus the selected baseline.</p></div></div>
+          <section class="detail-controls card scorecard-filter-card static-selector" data-selector-key="scorecard">
+            <div class="detail-filter-grid scorecard-controls selector-fields">
+              <label>Region<select id="score-region-filter"></select></label>
+              <label>Baseline<select id="score-baseline-filter"></select></label>
+              <label>Comparison Method<select id="score-comparison-filter"></select></label>
+              <label>Date Window<select id="score-period-filter"></select></label>
+              <div class="custom-date-pair hidden" role="group" aria-label="Custom date range">
+                <label id="score-start-wrap" class="custom-date hidden">Start Date<input id="score-start-date" type="date"></label>
+                <label id="score-end-wrap" class="custom-date hidden">End Date<input id="score-end-date" type="date"></label>
+              </div>
+            </div>
+          </section>
+          <div class="scorecard-header-row"><div class="score-gradient-legend"><span>Worse</span><i></i><span>Baseline</span><i class="reverse"></i><span>Better</span></div><span id="scorecard-context" class="context-note"></span></div>
+          <p id="score-comparison-note" class="comparison-note"></p><div id="scorecard-sections" class="scorecard-sections scorecard-panel-grid"></div>
+        </section>
+
+        <section class="page" data-page="timeseries">
+          <div class="page-heading"><div><h2>Time Series</h2><p>Daily absolute verification statistics at a selected forecast lead using the appropriate truth source.</p></div></div>
+          <section class="detail-controls card static-selector" data-selector-key="timeseries">
+            <div class="detail-filter-grid selector-fields">
+              <label>Variable<select id="ts-variable-filter"></select></label>
+              <label>Metric<select id="ts-metric-filter"></select></label>
+              <label>Region<select id="ts-region-filter"></select></label>
+              <label>Forecast Lead<select id="ts-lead-filter"></select></label>
+              <label>Date Window<select id="ts-period-filter"></select></label>
+              <div class="custom-date-pair hidden" role="group" aria-label="Custom date range">
+                <label id="ts-start-wrap" class="custom-date hidden">Start Date<input id="ts-start-date" type="date"></label>
+                <label id="ts-end-wrap" class="custom-date hidden">End Date<input id="ts-end-date" type="date"></label>
+              </div>
+            </div>
+          </section>
+          <article class="card detail-chart-card">
+            <header class="card-header stack-mobile"><div><h2 id="ts-chart-title">Time Series</h2><p id="ts-chart-subtitle"></p></div><div class="selection-actions"><button id="ts-select-all" class="small-button" type="button">Select all</button><button id="ts-clear-all" class="small-button" type="button">Clear</button></div></header>
+            <div id="ts-model-chips" class="chip-row"></div><div class="chart-shell detail-chart-shell"><div id="ts-chart" class="chart interactive-chart"></div></div><div id="ts-verification-note" class="verification-note"></div>
+          </article>
+        </section>
+
+        <!-- Reference pages describe verification results without claiming unavailable datasets. -->
+        <section class="page reference-page" data-page="methodology">
+          <div class="reference-hero card">
+            <div>
+              <div class="reference-eyebrow">REFERENCE / 01</div>
+              <h2>Methodology</h2>
+              <p>What the dashboard measures and how to interpret verification scores, model rankings, and comparisons.</p>
+              <div class="reference-pills"><span>Rolling 90-day window</span><span>Seven guidance systems</span><span>Five verification regions</span></div>
+            </div>
+            <div class="reference-hero-symbol" aria-hidden="true">∑</div>
+          </div>
+          <div class="reference-layout">
+            <nav class="reference-toc card" aria-label="Methodology sections">
+              <div class="reference-toc-heading">On this page</div>
+              <a href="#" data-scroll-to="method-scope">01 <span>Scope &amp; models</span></a>
+              <a href="#" data-scroll-to="method-sources">02 <span>Available data</span></a>
+              <a href="#" data-scroll-to="method-metrics">03 <span>Metrics</span></a>
+              <a href="#" data-scroll-to="method-aggregation">04 <span>Aggregation</span></a>
+              <a href="#" data-scroll-to="method-ranks">05 <span>Ranks &amp; scorecards</span></a>
+              <a href="#" data-scroll-to="method-windows">06 <span>Dates &amp; forecast leads</span></a>
+              <a href="#" data-scroll-to="method-significance">07 <span>EVS-style confidence intervals</span></a>
+              <a href="#" data-scroll-to="method-signals">08 <span>Signals &amp; limitations</span></a>
+            </nav>
+            <div class="reference-content">
+              <section class="reference-section card" id="method-scope">
+                <div class="section-kicker">01 / DATASET</div><h3>Scope &amp; evaluated models</h3>
+                <p>This dashboard displays available verification statistics for seven global guidance systems: <strong>GFS, AIGFS, CFS, CMC, ECMWF, FNMOC, and UKMET</strong>. The available model group is <strong>Global</strong>. The available geographic domains are Global, Northern Hemisphere, Southern Hemisphere, Tropics, and CONUS. Upper-air and mean sea-level pressure scores are available in the global domains, while the current 2-m temperature, 10-m wind, and 24-hour precipitation products use the CONUS domain.</p>
+                <p>The archive supports up to <strong>90 daily valid dates</strong> and <strong>Day 0 through Day 15</strong>. Only available daily scores are displayed. Available metrics include height, temperature, pressure, 10-m wind, and 24-hour precipitation scores. When a metric is available only in another region, selecting it switches to that region across the dashboard pages. The Home scorecard includes its fixed set of metrics, even when the selected ranking metric changes. Each scorecard entry identifies its actual verification domain. Missing scores remain <strong>N/A</strong>.</p>
+                <div class="reference-notice"><strong>Data availability</strong><span>Unavailable results show N/A rather than estimated values. Different model coverage can affect comparisons.</span></div>
+              </section>
+
+              <section class="reference-section card" id="method-sources">
+                <div class="section-kicker">02 / DATA AVAILABILITY</div><h3>Available data</h3>
+                <p>Verification products include 500-hPa geopotential height ACC, RMSE and bias; 850-hPa temperature RMSE and bias; mean sea-level pressure RMSE and bias; 2-m temperature RMSE and bias; 10-m wind vector RMSVE and SPEED_ERR; and 24-hour precipitation ETS at the ≥0.10-inch (2.54-mm) event threshold. Precipitation ETS is recorded as MET GSS and verified at 12 UTC; the other current daily products use 00 UTC. Data availability varies by model, region, date, and forecast lead. Available metrics remain selectable regardless of the current region; selecting a metric available only in CONUS switches the plot to CONUS. Missing model, date, or lead combinations still show <strong>N/A</strong>.</p>
+                <p>Comparisons use the same verification date, forecast lead, region, and metric. The detailed analysis pages also offer a stricter setting that uses only records verified against the same dataset. This can reduce the number of available comparisons.</p>
+              </section>
+
+              <section class="reference-section card" id="method-metrics">
+                <div class="section-kicker">03 / MEASURES</div><h3>Verification metrics</h3>
+                <div class="metric-explainer-grid">
+                  <article class="metric-explainer"><div><span class="metric-acronym">ACC</span><span class="metric-direction">Higher is better</span></div><h4>Anomaly Correlation Coefficient</h4><p>Measures how well forecast anomalies align with verifying anomalies relative to a climatological reference. Displayed for 500-hPa geopotential height in the current dashboard.</p></article>
+                  <article class="metric-explainer"><div><span class="metric-acronym">RMSE</span><span class="metric-direction">Lower is better</span></div><h4>Root Mean Square Error</h4><p>Measures overall error magnitude in the variable's physical units (K, m, hPa or m/s). Larger errors receive more weight than small errors because differences are squared.</p></article>
+                  <article class="metric-explainer"><div><span class="metric-acronym">ME</span><span class="metric-direction">Closer to zero</span></div><h4>Bias (mean error)</h4><p>The mean signed forecast-minus-observation difference for scalar fields. Positive and negative values indicate opposite errors; rankings compare absolute distance from zero, while Time Series shows the signed value.</p></article>
+                  <article class="metric-explainer"><div><span class="metric-acronym">ETS</span><span class="metric-direction">Higher is better</span></div><h4>Equitable Threat Score</h4><p>Measures categorical precipitation event skill while accounting for hits expected by chance. The 24-hour precipitation event threshold is <strong>≥0.10 inch (2.54 mm)</strong>.</p></article>
+                  <article class="metric-explainer"><div><span class="metric-acronym">RMSVE</span><span class="metric-direction">Lower is better</span></div><h4>10-m wind vector error</h4><p>Root mean square of the full forecast-minus-observed wind vector difference. Includes differences in wind magnitude and direction; it is <strong>not</strong> scalar wind-speed RMSE.</p></article>
+                  <article class="metric-explainer"><div><span class="metric-acronym">SPEED_ERR</span><span class="metric-direction">Closer to zero</span></div><h4>10-m wind vector speed error</h4><p>The magnitude of the <em>average forecast wind vector</em> minus the magnitude of the <em>average observed wind vector</em>. This is not the difference between average scalar wind speeds and is not conventional mean vector error.</p></article>
+                </div>
+                <p class="reference-small">The displayed values are already-computed verification statistics; the dashboard summarizes and compares those statistics rather than calculating them from raw forecasts and observations.</p>
+              </section>
+
+              <section class="reference-section card" id="method-aggregation">
+                <div class="section-kicker">04 / COMPUTATION</div><h3>Combining daily statistics</h3>
+                <p>For longer periods or the “All forecast leads” option, the dashboard combines available daily verification statistics according to the metric:</p>
+                <div class="reference-table-scroll"><table class="reference-table"><thead><tr><th>Metric</th><th>How scores are combined</th><th>Interpretation</th></tr></thead><tbody>
+                  <tr><td>RMSE, RMSVE</td><td><code>sqrt(mean(score²))</code></td><td>Accounts for squared error magnitude</td></tr>
+                  <tr><td>ACC</td><td><code>tanh(mean(atanh(ACC)))</code></td><td>Combines correlation coefficients</td></tr>
+                  <tr><td>ME, SPEED_ERR</td><td><code>mean(signed score)</code></td><td>Positive and negative errors can offset</td></tr>
+                  <tr><td>ETS</td><td><code>mean(ETS)</code></td><td>Average of the displayed daily scores</td></tr>
+                </tbody></table></div>
+                <p>Statistics are combined from the available daily scores. Differences in sample coverage or the number of available records can affect comparisons; interpret small differences with care.</p>
+              </section>
+
+              <section class="reference-section card" id="method-ranks">
+                <div class="section-kicker">05 / INTERPRETATION</div><h3>Model ranks, skill, and scorecards</h3>
+                <div class="reference-steps">
+                  <article><strong>Overall ranking</strong><p>Home's ranking at left orders models using the <em>aggregated absolute statistic</em> across the selected dates and forecast lead(s): highest ACC/ETS, lowest RMSE/RMSVE, or ME/SPEED_ERR closest to zero ranks first. It is <strong>not</strong> the average of daily ranks.</p></article>
+                  <article><strong>Daily rank history</strong><p>The Home plot separately ranks all models with a valid score at each individual date. <strong>1 = best</strong> (top of chart); larger rank numbers are lower-performing. The lines show rank changes, <em>not raw score changes</em>.</p></article>
+                  <article><strong>Skill vs Forecast Lead</strong><p>Each forecast day compares the model's aggregated metric with a selected baseline (GFS by default). Positive percentages indicate improvement and negative percentages indicate degradation. The <strong>0.0%</strong> reference is always labeled. The optional EVS-style difference/interval chart uses raw paired daily model-minus-baseline scores in native metric units. The Forecast Hour Mean chart beneath it shows the arithmetic average of available daily absolute verification scores at each forecast hour for each selected model (regardless of baseline pairing). Missing data remain gaps, and sample sizes can differ across models. This average is intentionally distinct from RMS/Fisher aggregation used for relative skill.</p></article>
+                  <article><strong>Scorecard</strong><p>Home and full Scorecard display percentage improvement relative to the chosen baseline for each metric and forecast lead. Each metric uses the selected region if available; products not available in the selected domain retain their actual region and are labeled as such, without combining domains in a single metric. Baseline cells are <strong>0.0%</strong>. Blue indicates positive skill, gray near zero, red negative skill; values are also printed, so color alone is not required.</p></article>
+                  <article><strong>Time Series</strong><p>Shows actual metric values for each valid date at a chosen lead, or a metric-specific aggregation across all available leads. It is <strong>not</strong> baseline-relative. Y-axis units follow the selected metric.</p></article>
+                </div>
+                <div class="reference-formula"><div class="formula-title">Baseline-relative skill (%)</div><code>Higher-is-better: 100 × (model − baseline) / |baseline|</code><code>Lower-is-better: 100 × (baseline − model) / |baseline|</code><code>ME or SPEED_ERR: 100 × (|baseline error| − |model error|) / max(|baseline error|, floor)</code><p>When the baseline error is close to zero, percentages can become large and should be interpreted cautiously, especially for signed errors. Heatmap color intensity is a visual guide; the printed percentage is the comparison value.</p></div>
+              </section>
+
+              <section class="reference-section card" id="method-windows">
+                <div class="section-kicker">06 / SAMPLING</div><h3>Dates and forecast leads</h3>
+                <p>The window presets are <strong>7, 15, 30, 60, and 90 days</strong>. Each preset ends on the latest available verification date. A Custom Range allows a start and end date within the available 90-day period.</p>
+                <p>Skill vs Forecast Lead displays <strong>Day 0 through Day 15</strong> at whole-day intervals. The detailed Scorecard uses a compact subset: <strong>Days 1, 3, 5, 7, 10, and 15</strong>. Time Series can show a single lead or combine all available leads. Selected dates and forecast leads determine which statistics contribute to each result.</p>
+                <p><strong>Chart interaction:</strong> Hovering over a model name highlights its line on Home, Skill vs Forecast Lead, and Time Series; hovering over a line also identifies its model. Model-selection controls can show or hide traces without altering the underlying scores. Charts support sampling, zooming, panning, resetting the view, and downloading labeled PNGs. Dark and light themes use the same model colors and marker shapes.</p>
+              </section>
+
+              <section class="reference-section card" id="method-significance">
+                <div class="section-kicker">07 / UNCERTAINTY</div><h3>EVS-style paired-difference intervals</h3>
+                <p>On Skill vs Forecast Lead, the optional <strong>Show EVS-style 95% confidence intervals</strong> control displays a separate model-minus-baseline difference chart in the <strong>native verification metric units</strong>. The existing percentage-skill chart remains unchanged. Model-colored outlined bars are centered on the zero-difference reference, one bar per model and forecast lead with enough paired daily scores.</p>
+                <div class="reference-steps">
+                  <article><strong>Beyond the model's outlined bar</strong><p>A model's daily-mean difference outside its own zero-centered interval indicates that the pointwise 95% interval around that mean does not include zero, under the approximation used by the EVS lead-average plot. It does not necessarily indicate better skill, particularly for signed bias.</p></article>
+                  <article><strong>Inside the bar</strong><p>Zero cannot be excluded for that model and forecast lead at the approximate 95% level. Each model has its own bar; there is no shared envelope.</p></article>
+                  <article><strong>No bar</strong><p>An interval requires at least <strong>2 matched daily records</strong>. Missing model data or dates produce gaps rather than fabricated values. Small samples have unstable uncertainty estimates.</p></article>
+                  <article><strong>Display and export</strong><p>The optional panel is off by default. It follows the selected metric, models, region, baseline, dates, and comparison mode, and supports independent hover, zoom, pan and PNG export.</p></article>
+                </div>
+                <p><strong>Method:</strong> For each model and forecast lead, pair daily scores with the chosen baseline by valid date and lead (and by verification source in Strict mode). Calculate each daily difference as <code>model − baseline</code> and its arithmetic mean. Following <a href="https://github.com/NOAA-EMC/EVS/blob/develop/ush/global_det/global_det_atmos_plots_lead_average.py#L200" target="_blank" rel="noopener noreferrer">EVS global deterministic lead-average plotting</a>, calculate <code>CI half-width = factor × population SD(daily differences) / sqrt(n − 1)</code>, with factor <code>1.960</code> for n ≥ 80, <code>2.000</code> for n = 40–79, <code>2.042</code> for n = 20–39, and <code>2.228</code> for n = 2–19. The plotted interval bars extend from −CI to +CI around zero.</p>
+                <div class="reference-notice"><strong>Interpretation caution</strong><span>The formula follows the EVS plotting routine, but these inputs are existing daily <em>regional summary scores</em>, not the original matched forecast/observation events. Inference is pointwise, does not adjust for serial correlation or multiple comparisons, and is not a test of the dashboard's nonlinear percentage-skill aggregation. The sign of a mean difference shows a higher/lower raw statistic, not necessarily improvement; signed bias differences particularly require care.</span></div>
+              </section>
+
+              <section class="reference-section card" id="method-signals">
+                <div class="section-kicker">08 / CAUTIONS</div><h3>Notable Signals and limitations</h3>
+                <p>Home's Notable Signals compares each model's most recent <strong>15-day period</strong> with the <strong>preceding 15-day period</strong>, using the available headline metrics across forecast leads. It displays up to <strong>six of the largest percentage changes</strong>. Blue upward arrows indicate improvement; red downward arrows indicate degradation. Stronger shades indicate larger changes, and at least one of each direction is included when both are present.</p>
+                <p>Signals are an automated way to identify possible changes in recent summary performance. They are <strong>not statistical significance tests</strong>, forecast alerts, or confirmed changes in model quality. They use fixed 15-day windows rather than the Home ranking chart's selected date range or forecast lead.</p>
+                <ul><li>Small differences in scores do not necessarily imply a meaningful difference in forecast quality.</li><li>Performance depends on metric, geographic region, forecast lead, verification period, and verifying dataset.</li><li>Not all models have data for every metric, date, or lead; <strong>N/A</strong> and gaps represent unavailable information, not zero performance.</li><li>Combining different forecast leads or comparing models with different coverage can obscure lead-specific differences.</li></ul>
+              </section>
+</div>
+          </div>
+        </section>
+
+        <section class="page reference-page" data-page="changelog">
+          <div class="reference-hero card">
+            <div>
+              <div class="reference-eyebrow">REFERENCE / 02</div>
+              <h2>Changelog</h2>
+              <p>Dashboard updates and release history, newest first.</p>
+              <div class="reference-pills"><span>Current version · 1.1.8</span><span>Forecast Hour Mean</span><span>EVS-style confidence intervals</span></div>
+            </div>
+            <div class="reference-hero-symbol" aria-hidden="true">↻</div>
+          </div>
+          <div class="release-list">
+            <article class="release-card card current-release"><div class="release-side"><strong>1.1.8</strong><span class="release-status">Current</span><small>November 9, 2026</small></div><div><h3>Forecast Hour Mean and EVS-style uncertainty</h3><p>Added an absolute verification die-off curve beneath Skill vs Lead, plus an optional model-specific paired difference confidence-interval chart based on the EVS lead-average method.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.1.7</strong><small>November 8, 2026</small></div><div><h3>Bias terminology in metric menus</h3><p>Changed user-facing scalar Mean Error metric menu labels to Bias across Home, Skill vs Lead, Scorecard, and Time Series. Internal BIAS and source ME identifiers, calculations, and data remain unchanged.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.1.6</strong><small>November 3, 2026</small></div><div><h3>Daily verification values in ranking hover</h3><p>The Home ranking tooltip now shows each model’s actual verification statistic beside its rank at the hovered date, with metric-specific precision and units. Rankings and verification calculations remain unchanged.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.1.5</strong><small>November 2, 2026</small></div><div><h3>Synchronized regions and scorecards</h3><p>Manual and automatic region selections are synchronized across pages, and older data loads cannot replace a newer selection. The Home scorecard continues to identify the region used for each verification metric.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.1.4</strong><small>November 2, 2026</small></div><div><h3>Region-aware metric selection and scorecards</h3><p>Enabled automatic region selection for CONUS-only metrics and region-labeled scorecard values.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.1.3</strong><small>November 2, 2026</small></div><div><h3>Optional significance display</h3><p>Estimated significance thresholds on Skill vs Forecast Lead are now hidden by default. The display can still be enabled using the checkbox; the estimates and calculations are unchanged.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.1.2</strong><small>November 2, 2026</small></div><div><h3>Data availability refresh</h3><p>Improved loading consistency after deploying new metrics by refreshing browser module assets and published regional CSVs. Verification data, calculations, and charts remain unchanged.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.1.1</strong><small>November 2, 2026</small></div><div><h3>Verified new STAT products</h3><p>Validated all 12 supported product mappings against actual GFS files, added CONUS as a fifth verification region for surface and precipitation scores, and corrected precipitation ETS to read MET GSS at the ≥2.54-mm threshold. Updated the import and publication workflow for the additional region.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.1.0</strong><small>November 2, 2026</small></div><div><h3>Expanded verification statistics</h3><p>Added additional height, temperature, and pressure mean error and RMSE products; 10-m wind RMS vector error and vector SPEED_ERR; and 24-hour precipitation ETS at ≥0.10 inch (2.54 mm). Model-specific missing data remain N/A. Updated the Methodology to distinguish wind-vector statistics from scalar wind-speed error.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.9</strong><small>November 2, 2026</small></div><div><h3>Readable chart axis labels</h3><p>Chart y-axes now use rounded, meaningful numerical intervals, replacing awkward decimal values on Time Series and other plots. Verification units remain in the axis title, while sampling retains normal value precision and units. PNG exports use the same axis labels as the interactive plots.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.8</strong><small>October 29, 2026</small></div><div><h3>Model selector hover highlighting</h3><p>Hover over or focus a model selector on Skill vs Forecast Lead or Time Series to highlight its plotted trace and fade other lines, matching the Home ranking interaction. Moving away restores all traces. Selecting or deselecting models still works as before. The Methodology reference has also been expanded to explain the estimated significance boxes and recent chart features.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.7</strong><small>October 29, 2026</small></div><div><h3>Skill vs Lead zero reference and estimated significance</h3><p>The baseline 0.0% reference is always a labeled major tick on Skill vs Lead. An optional exploratory significance display adds per-lead boxes using paired daily scores when at least 20 matched dates are available. The estimates are not official EVS confidence intervals and are also included in downloaded PNGs.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.6</strong><small>October 29, 2026</small></div><div><h3>Updated AIGFS color</h3><p>AIGFS now uses purple (#8400c8) on plots, markers, model controls, and exported PNGs. CMC remains blue.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.5</strong><small>October 29, 2026</small></div><div><h3>Subtler GFS outline and consistent signal arrows</h3><p>Reduced the light outline on the GFS line and circular markers in dark mode, including exported PNGs. All declining Notable Signals now use white arrows with a subtle contrast shadow, avoiding an inconsistent black arrow between similar red shades. All other model styling and calculations are unchanged.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.4</strong><small>October 29, 2026</small></div><div><h3>Refined chart visibility and Notable Signals</h3><p>Corrected the GFS light line outline in dark mode, removed unnecessary outlines from other models and from all light-mode charts, and refined Notable Signals to show the strongest changes while including both improvements and declines when available.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.3</strong><small>October 29, 2026</small></div><div><h3>Original dark plots and selective contrast edging</h3><p>Restored the original deep-navy plot background and introduced adaptive contrast borders for model traces and markers in dark and light modes.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.2</strong><small>October 29, 2026</small></div><div><h3>Plot contrast and balanced signals</h3><p>Darkened dark-theme plotting areas while keeping black GFS traces readable, made marker sizes uniform, and added contrast edging for light-colored traces. Notable Signals now uses graduated scorecard blue/red shades and shows improvements and declines together when both are available.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.1</strong><small>October 29, 2026</small></div><div><h3>Model plot styling and signal colors</h3><p>Applied the standard model color, marker, and line-width conventions to all charts and exported PNGs. Improved dark-theme plot readability for GFS and changed Notable Signals arrows to scorecard blue/red colors.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>1.0.0</strong><small>October 28, 2026</small></div><div><h3>First public release</h3><p>Prepared the dashboard for users with compact Custom Range date controls across all four pages, consistent release numbering, and updated user and GitHub documentation. Verification calculations and available datasets are unchanged.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.32.0</strong><small>October 28, 2026</small></div><div><h3>Documentation and scheduled data updates</h3><p>Refreshed the Methodology, Changelog, and deployment documentation. Added a validated daily-update workflow to publish new verification data to a web server or GitHub. The existing verification displays and calculations remain unchanged.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.31.0</strong><small>October 28, 2026</small></div><div><h3>Clearer metric availability</h3><p>Metrics available in a different domain can be selected and automatically switch the plot region. Scorecards use and label each metric’s actual verification domain. Truly unavailable combinations remain N/A.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.30.0</strong><small>October 28, 2026</small></div><div><h3>Simplified Home controls</h3><p>Moved the baseline control into the Home scorecard, clarified detailed comparisons, and removed unnecessary technical explanations.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.29.0</strong><small>October 28, 2026</small></div><div><h3>Model coverage and relative comparisons</h3><p>Improved model comparisons and missing-data visibility, with Day 5 as the default Home forecast lead. Missing results remain N/A.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.28.0</strong><small>October 28, 2026</small></div><div><h3>Python 3.6 ingestion support</h3><p>Updated the EVS statistics importer to run under Python 3.6.8 without changing displayed scores or dashboard behavior.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.27.0</strong><small>October 27, 2026</small></div><div><h3>Real verification data and missing-data handling</h3><p>Enabled real verification data ingestion for seven models across H500 ACC, T850 RMSE, and MSLP RMSE. Unavailable metrics display N/A. Synthetic statistics were removed.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.26.0</strong><small>October 8, 2026</small></div><div><h3>Icon-only theme toggle</h3><p>Removed the visible Light/Dark text from the theme button while retaining the sun/moon icons, accessible labels, hover descriptions, and remembered theme preference.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.25.0</strong><small>October 8, 2026</small></div><div><h3>Theme toggle icon correction</h3><p>Made the sun icon accompany the Light option and the moon icon accompany the Dark option. The button’s accessible label now updates with the selected action.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.24.0</strong><small>October 8, 2026</small></div><div><h3>Clearer methodology and Home footer</h3><p>Streamlined Methodology to focus on reading and interpreting dashboard results. Added the dashboard update date, most recent verification date, and a contact link beneath the Home footer.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.23.0</strong><small>October 8, 2026</small></div><div><h3>In-app documentation</h3><p>Introduced dedicated <strong>Methodology</strong> and <strong>Changelog</strong> pages under a Reference group in the left navigation. Documented metric definitions, model rankings, scorecard comparisons, and interpretation guidance. No changes to verification data or chart computations.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.22.0</strong><small>Period filters</small></div><div><h3>60-day selection</h3><p>Added the Last 60 Days preset to the date selectors on Home, Skill vs Lead, Scorecard, and Time Series.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.21.0</strong><small>Usability</small></div><div><h3>Graph controls &amp; documentation</h3><p>Moved zoom, reset, and PNG controls into a separate strip above each interactive graph, preventing overlap with data traces. Refreshed the deployment README.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.20.0</strong><small>Home</small></div><div><h3>Interactive Home rank history</h3><p>Brought box zoom, mouse-wheel zoom, Shift+drag panning, reset, and titled PNG export to the Home ranking graph.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.19.0</strong><small>Rankings</small></div><div><h3>Daily position tracking</h3><p>Changed Home's main plot to daily model rank, keeping overall ranking based on full-period aggregate score. Retained the most recently selected dark/light theme between visits.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.18.0</strong><small>Charts</small></div><div><h3>Axis and export titles</h3><p>Added meaningful X/Y axis labels and contextual titles/subtitles to exported chart PNGs.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.17.0</strong><small>Responsive</small></div><div><h3>Mobile Home layout</h3><p>Corrected the Home chart's horizontal overflow and made the model ranking strip scroll independently on narrow displays.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.16.0</strong><small>Data &amp; interaction</small></div><div><h3>Daily leads and box zoom</h3><p>Expanded mock forecast leads to Days 0–15 at 24-hour intervals. Added drag-to-select zoom and Shift+drag panning to detailed charts.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.15.0</strong><small>Charts</small></div><div><h3>Safer zoom and date axes</h3><p>Clipped traces to graph bounds, stabilized date ticks using actual sample dates, and removed inset graph legends.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.14.0</strong><small>Navigation</small></div><div><h3>Static selectors and canvas export</h3><p>Returned filters to static top-of-page panels, fixed Skill vs Lead's 0–15-day axis, and replaced SVG-based PNG export with canvas rendering.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.13.0</strong><small>Scorecards</small></div><div><h3>Baseline-relative scorecards</h3><p>Introduced model-selectable baselines, red/neutral/blue multi-shade scorecards, and distinct chart palettes for dark and light themes. The selector's temporary draggable behavior was subsequently retired in 0.14.0.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.12.0</strong><small>Home design</small></div><div><h3>High-level landing page</h3><p>Introduced linked model ranking and trend graph, removed duplicate small charts, and retained a compact scorecard above the signal and category summaries.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.11.0</strong><small>Regions</small></div><div><h3>Four global verification domains</h3><p>Reduced regions to Global, Northern Hemisphere, Southern Hemisphere, and Tropics and regenerated mock statistics accordingly.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.10.0</strong><small>Core scope</small></div><div><h3>Initial OMD metric catalog</h3><p>Focused the prototype on five models and ACC, RMSE, Bias, and precipitation ETS, with a 90-day history and multi-panel Scorecard.</p></div></article>
+            <article class="release-card card"><div class="release-side"><strong>0.9.0</strong><small>Foundation</small></div><div><h3>Analysis workspaces</h3><p>Established sidebar-based Home, Skill vs Lead, Scorecard, and Time Series views with modular CSV loading and desktop/mobile navigation.</p></div></article>
+          </div>
+          <p class="reference-changelog-note">This log summarizes major dashboard changes. Unavailable verification results display N/A.</p>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <div>OMD Model Performance Dashboard · EVS summary statistics · Missing data are indicated as N/A.</div>
+        <div class="home-footer-extra" aria-label="Dashboard update and contact information">
+          <div>Dashboard last updated: <time datetime="2026-11-09">November 9, 2026</time> (1.1.8) · Latest available verification date: <time id="footer-verification-date">N/A</time></div>
+          <div>Questions and comments can be directed to <a href="mailto:thomas.hultquist@noaa.gov">Tom Hultquist</a>, Office of Modeling and Development, Evaluation and Verification Unit.</div>
+        </div>
+      </footer>
+    </div>
+  </div>
+  <script type="module" src="js/app.js?v=1.1.8"></script>
+</body>
+</html>
