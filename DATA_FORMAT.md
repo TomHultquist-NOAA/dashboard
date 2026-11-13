@@ -1,6 +1,6 @@
 # Verification data format
 
-**OMD Model Performance Dashboard — version 1.1.8**
+**OMD Model Performance Dashboard — version 1.1.10**
 
 ## Regional CSV files
 
@@ -63,9 +63,13 @@ Source STAT statistics have already been summarized. Aggregation over multiple d
 
 ## Forecast Hour Mean and paired-difference displays
 
-Version 1.1.8 adds **no new CSV columns, STAT products, or importer requirements**. Forecast Hour Mean derives an arithmetic mean from available `value` records for each selected model and forecast lead. The arithmetic mean is intentionally distinct from the RMS or Fisher aggregation used by the preexisting relative-skill chart; gaps in the underlying data remain gaps in the plot.
+Version 1.1.10 adds **no new CSV columns, STAT products, or importer requirements**. Forecast Hour Mean derives an arithmetic mean from available `value` records for each selected model and forecast lead. The arithmetic mean is intentionally distinct from the RMS or Fisher aggregation used by the preexisting relative-skill chart; gaps in the underlying data remain gaps in the plot.
 
-The optional EVS-style difference/interval display pairs each model's `value` with the baseline on matching `valid_date` and `forecast_hour` (same metric and region). Standard mode permits different `verification_source` labels; Strict mode additionally requires that both labels are present and match. A minimum of **two matched dates per model/lead** is needed for a confidence interval. The interval uses population standard deviation of the daily differences, the EVS lead-average sample-size multipliers, and a `sqrt(n - 1)` divisor. It operates on available **daily regional summary scores**; it cannot reconstruct official event-level EVS uncertainty or account for interday dependence. Counts are derived at runtime; the blank `sample_count` field is not used or filled in.
+The Skill vs Lead percentage-skill and EVS-style difference/interval displays pair each model's `value` with the baseline on matching `valid_date` and `forecast_hour` (same metric and region), using Standard matching only. They permit different `verification_source` labels. The separate Scorecard continues to offer Strict mode requiring that both verification-source labels are present and match. A minimum of **two matched dates per model/lead** is needed for a confidence interval. The interval uses population standard deviation of the daily differences, the EVS lead-average sample-size multipliers, and a `sqrt(n - 1)` divisor. It operates on available **daily regional summary scores**; it cannot reconstruct official event-level EVS uncertainty or account for interday dependence. Counts are derived at runtime; the blank `sample_count` field is not used or filled in.
+
+**All-lead Home ranking:** The existing `(valid_date, forecast_hour)` pair is also the comparison key for the Home ranking when Forecast Lead is All. Only keys with records in every selected ranking model enter the aggregate and daily rankings. The available-hour table counts actual records per model and lead. These runtime operations do not create or alter observation rows. Other Home summaries retain their existing calculations.
+
+**Equivalent lead-time gain:** For each model and baseline independently, use all available daily `value` records at each forecast hour to compute arithmetic means and daily record counts, exactly as for the Forecast Hour Mean chart. These inputs need not share verification dates or verification-source labels. Transform mean scores to higher-is-better quality, apply isotonic monotonic fitting weighted by per-hour daily record count, and invert the model curve at each available baseline reference hour by interpolation between adjacent observed 24-hour model leads only. No extrapolation, synthetic verification rows, or CSV format changes are involved. If the baseline reference hour has no available mean, or the model curve cannot bracket that quality, the result is unavailable with an explicit reason, not zero. Unlike Skill vs Lead percentage skill and EVS significance, this is an independently sampled, descriptive comparison.
 
 ## Publication and availability
 

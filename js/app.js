@@ -1,13 +1,19 @@
-import { CONFIG, metricKeys, variableKeys, metricsForVariable } from './config.js?v=1.1.8';
-import { DataService } from './data-service.js?v=1.1.8';
-import { renderLineChart, cleanAxisTickLabel } from './charts.js?v=1.1.8';
-import { buildEvsDifferenceSeries } from './significance.js?v=1.1.8';
+import { CONFIG, metricKeys, variableKeys, metricsForVariable } from './config.js?v=1.3.2';
+import { DataService } from './data-service.js?v=1.3.2';
+import { renderLineChart, cleanAxisTickLabel } from './charts.js?v=1.3.8';
+import { buildTimeSeriesPeriodSummary } from './time-series-summary.js?v=1.3.8';
+import { buildSkillSignificanceBoxes } from './significance.js?v=1.3.2';
+import { effectiveLeadSeries } from './effective-lead.js?v=1.3.2';
+import { exportTablesPng, exportTablesCsv } from './table-export.js?v=1.3.2';
+import {renderFingerprint,renderMatrix,renderAtlas,renderDistribution,renderRolling,renderHorizon,exportExplorerSvg} from './explorer-view.js?v=1.3.9';
+import {renderAdvantageEnvelope,renderWinFrequency,renderMetricTradeoffs,renderBootstrap} from './explorer-advanced-view.js?v=1.3.9';
+import {renderLeadership,renderCases,renderScatter,renderBiasEvolution,renderPortrait,renderRobustness,renderCoverage} from './explorer-diagnostic-view.js?v=1.3.11';
 
 const data=new DataService();
 // Diagnostic information is available through the browser console without
 // adding implementation-only details to the public-facing interface.
 window.omdDashboardDiagnostics=()=>({
-  version:'1.1.8',
+  version:'1.3.11',
   loadedRegions:[...data.loadedRegions],
   regions:Object.fromEntries([...data.regionDiagnostics.entries()])
 });
@@ -23,9 +29,10 @@ const iso=d=>new Date(d).toISOString().slice(0,10);
 
 const state={
   route:'home',
-  home:{modelGroup:'Global',region:CONFIG.defaultRegion,period:'30',customStart:null,customEnd:null,baseline:'GFS',primaryMetric:'H500_ACC',forecastLead:120,comparisonMode:'date_lead'},
-  skill:{variable:'H500',metric:'H500_ACC',region:CONFIG.defaultRegion,baseline:'GFS',period:'30',customStart:null,customEnd:null,comparisonMode:'date_lead',models:[...MODELS]},
+  home:{modelGroup:'Global',region:CONFIG.defaultRegion,period:'30',customStart:null,customEnd:null,baseline:'GFS',primaryMetric:'H500_ACC',forecastLead:120,comparisonMode:'date_lead',models:[...MODELS]},
+  skill:{variable:'H500',metric:'H500_ACC',region:CONFIG.defaultRegion,baseline:'GFS',period:'30',customStart:null,customEnd:null,models:[...MODELS]},
   score:{region:CONFIG.defaultRegion,baseline:'GFS',period:'30',customStart:null,customEnd:null,comparisonMode:'date_lead'},
+  explorer:{region:CONFIG.defaultRegion,metric:'H500_ACC',model:'AIGFS',baseline:'GFS',lead:120,period:'30',rollingDays:7,customStart:null,customEnd:null,models:[...MODELS]},
   ts:{variable:'H500',metric:'H500_ACC',region:CONFIG.defaultRegion,lead:120,period:'30',customStart:null,customEnd:null,models:[...MODELS]}
 };
 
@@ -75,7 +82,7 @@ function chooseMetricForRegion(s){
 // a metric-driven switch to CONUS consequently left the Scorecard on an old
 // domain. Keep the selection synchronized, while scorecards continue to select
 // the actual available domain independently for each metric.
-const REGION_PAGES=['home','skill','score','ts'];
+const REGION_PAGES=['home','skill','score','ts','explorer'];
 let regionSelectionId=0;
 function selectDashboardRegion(nextRegion,{origin,fromMetric=false}={}){
   if(!CONFIG.regions.includes(nextRegion))return;
@@ -172,8 +179,8 @@ function syncDateLimits(){
   const yesterday=new Date();yesterday.setUTCHours(0,0,0,0);yesterday.setUTCDate(yesterday.getUTCDate()-1);
   const latest=data.latestDate||yesterday,earliest=data.earliestDate||new Date(latest.getTime()-89*86400000);
   const min=iso(earliest),max=iso(latest);
-  for(const prefix of ['home','skill','score','ts']){
-    const s=state[prefix==='score'?'score':prefix];
+  for(const prefix of ['home','skill','score','ts','explore']){
+    const s=state[prefix==='score'?'score':prefix==='explore'?'explorer':prefix];
     const start=$(`${prefix}-start-date`),end=$(`${prefix}-end-date`);if(!start||!end)continue;
     start.min=min;start.max=max;end.min=min;end.max=max;
     if(!s.customEnd || s.customEnd>max)s.customEnd=max;
@@ -209,18 +216,18 @@ function initTheme(){
   apply();$('theme-toggle').onclick=()=>{document.documentElement.dataset.theme=currentTheme()==='dark'?'light':'dark';localStorage.setItem('omd-dashboard-theme',currentTheme());apply();renderCurrent()};
 }
 function initNavigation(){
-  document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>setRoute(b.dataset.route));
+  document.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>{if(b.dataset.route==='timeseries')state.ts.referenceDate=null;setRoute(b.dataset.route)});
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>setRoute(b.dataset.go));
   $('menu-toggle').onclick=()=>{$('sidebar').classList.add('open');$('sidebar-backdrop').classList.add('visible')};
   $('sidebar-backdrop').onclick=()=>{$('sidebar').classList.remove('open');$('sidebar-backdrop').classList.remove('visible')};
   document.querySelectorAll('[data-scroll-to]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();document.getElementById(link.dataset.scrollTo)?.scrollIntoView({behavior:'smooth',block:'start'})}));
-  window.addEventListener('hashchange',()=>{const r=location.hash.replace('#/','');if(['home','skill','scorecard','timeseries','methodology','changelog'].includes(r))setRoute(r,true)});
+  window.addEventListener('hashchange',()=>{const r=location.hash.replace('#/','');if(['home','skill','explorer','scorecard','timeseries','methodology','changelog'].includes(r))setRoute(r,true)});
 }
 function setRoute(route,fromHash=false){
   const changed=state.route!==route;
   state.route=route;document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.dataset.page===route));document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.route===route));
-  const titles={home:['OMD Model Performance Dashboard','Rapid model-performance situational awareness using EVS verification statistics'],skill:['Skill vs Forecast Lead','Compare model skill across forecast lead against a selectable baseline'],scorecard:['Verification Scorecard','Compact baseline-relative verification panels across models and forecast leads'],timeseries:['Performance Time Series','Examine daily verification behavior over the previous 90 days'],methodology:['Methodology','Metric definitions, score aggregation, rankings, and data caveats'],changelog:['Changelog','Dashboard feature and implementation history']};
-  $('page-title').textContent=titles[route][0];$('page-subtitle').textContent=titles[route][1];document.body.classList.toggle('home-route',route==='home');
+  const titles={home:['OMD Model Performance Dashboard','Rapid model-performance situational awareness using EVS verification statistics'],skill:['Skill vs Forecast Lead','Compare model skill across forecast lead against a selectable baseline'],explorer:['Skill Explorer','Advanced analysis of matched daily verification summaries by model, lead, and region'],scorecard:['Verification Scorecard','Compact baseline-relative verification panels across models and forecast leads'],timeseries:['Performance Time Series','Examine daily verification behavior over the previous 90 days'],methodology:['Methodology','Metric definitions, score aggregation, rankings, and data caveats'],changelog:['Changelog','Dashboard feature and implementation history']};
+  $('page-title').textContent=titles[route][0];$('page-subtitle').textContent=titles[route][1];$('page-beta').classList.toggle('hidden',route!=='explorer');document.body.classList.toggle('home-route',route==='home');
   $('sidebar').classList.remove('open');$('sidebar-backdrop').classList.remove('visible');if(!fromHash)history.replaceState(null,'',`#/${route}`);if(changed)window.scrollTo(0,0);renderCurrent();
 }
 
@@ -279,6 +286,71 @@ function heatColor(grade){
 }
 function heatText(grade){return Math.abs(grade)>.58?'#fff':currentTheme()==='light'?'#142033':'#f3f7fd'}
 
+// The effective lead-time table uses the same red/gray/blue scorecard palette,
+// with a fixed hourly scale so identical gains have identical colors as
+// models, date windows, and the selected baseline change. +/-48h saturates.
+function effectiveLeadGrade(hours){
+  if(!Number.isFinite(hours))return 0;
+  return Math.sign(hours)*Math.sqrt(clamp(Math.abs(hours)/48,0,1));
+}
+// Use high-contrast text for intermediate palette shades in either theme.
+// Black/white selection keeps small table labels legible even at mid blues.
+function effectiveLeadTextColor(color){
+  const linear=color.match(/\d+/g).map(Number).map(v=>v/255)
+    .map(v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4));
+  const luminance=0.2126*linear[0]+0.7152*linear[1]+0.0722*linear[2];
+  return luminance>0.179?'#000000':'#ffffff';
+}
+// A plotted zero is a real same-hour fitted quality match. An unplotted
+// value must NEVER be silently replaced by zero: the source data can exist
+// without the mathematical equivalent being inside the sampled lead range.
+function effectiveLeadStatusText(row){
+  if(!row)return 'N/A';
+  if(row.status==='matched')return 'Matched';
+  if(row.status==='below-range')return `Before F${row.boundaryHour}`;
+  if(row.status==='beyond-range')return `Beyond F${row.boundaryHour}`;
+  if(row.status==='gap')return `Gap F${row.gapStart}–F${row.gapEnd}`;
+  if(row.status==='no-baseline-data')return 'No baseline data';
+  if(row.status==='no-model-data')return 'No model data';
+  if(row.status==='insufficient')return 'Insufficient leads';
+  return 'N/A';
+}
+function effectiveLeadExplanation(row,model,baseline){
+  if(!row)return 'No equivalent-hour result is available; this is not 0 h.';
+  if(row.status==='no-baseline-data')return `No available daily ${baseline} verification mean at F${row.baselineHour} for this metric, region, and date window. A baseline quality target cannot be defined; this is not 0 h.`;
+  if(row.status==='no-model-data')return `No daily ${model} verification means are available at any configured forecast lead for this metric, region, and date window. This is not 0 h.`;
+  const range=Number.isFinite(row.firstModelHour)?`Available ${model} lead range: F${row.firstModelHour}–F${row.lastModelHour}. `:'';
+  const prefix=`${baseline} F${row.baselineHour} uses ${row.baselineN} available daily scores; the ${model} curve uses its own available daily samples (not necessarily the same dates). ${range}`;
+  if(row.status==='matched')return `${prefix}Equivalent ${model} lead: F${row.modelHour.toFixed(1)}. ${Math.abs(row.gain)<0.05?'0.0 h, no estimated lead-time difference.':`${row.gain>=0?'+':''}${row.gain.toFixed(1)} h estimated difference.`}${row.sameLead?' Fitted model and baseline quality are equal at the same forecast hour.':''}`;
+  if(row.status==='below-range')return `${prefix}${model} does not reach ${baseline}'s quality at this lead even at its first available forecast hour (F${row.boundaryHour}). The equivalent would require an earlier lead; no extrapolation or invented zero.`;
+  if(row.status==='beyond-range')return `${prefix}${model} still exceeds ${baseline}'s target quality at its last available forecast hour (F${row.boundaryHour}). The equivalent would be later; no extrapolation or invented zero.`;
+  if(row.status==='gap')return `${prefix}Equivalent quality falls between model F${row.gapStart} and F${row.gapEnd}, but an intermediate model forecast-hour mean is missing. No interpolation across missing 24-hour steps.`;
+  return `${prefix}There are too few distinct model forecast-hour means to invert the curve at this target; this is not 0 h.`;
+}
+function effectiveLeadCell(row){
+  if(!row || row.status!=='matched')return `<span class="effective-lead-unavailable">${effectiveLeadStatusText(row)}</span>`;
+  if(!Number.isFinite(row.gain)||!Number.isFinite(row.modelHour))return 'N/A';
+  const color=heatColor(effectiveLeadGrade(row.gain));
+  const gain=Math.abs(row.gain)<0.05?0:row.gain;
+  const label=`${gain>0?'+':''}${gain.toFixed(1)} h (F${row.modelHour.toFixed(1)})`;
+  return `<span class="heat effective-lead-heat" style="background:${color};color:${effectiveLeadTextColor(color)}">${label}</span>`;
+}
+function effectiveLeadCoverageMatrix(curves,baseline){
+  const statusIcon=row=>!row||row.status==='no-baseline-data'?'–':row.status==='no-model-data'?'∅':row.status==='matched'?(Math.abs(row.gain)<0.05?'0':'●'):
+    row.status==='below-range'?'‹':row.status==='beyond-range'?'›':row.status==='gap'?'×':'?';
+  const statusClass=row=>!row?'no-baseline-data':row.status;
+  const headings=CONFIG.leads.map(h=>`<th scope="col" title="Baseline F${h}">D${h/24}</th>`).join('');
+  const body=curves.map(curve=>{
+    const lookup=new Map(curve.rows.map(row=>[row.baselineHour,row]));
+    const cells=CONFIG.leads.map(hour=>{
+      const row=lookup.get(hour),reason=effectiveLeadExplanation(row,curve.model,baseline);
+      return `<td><span tabindex="0" title="${reason.replaceAll('"','&quot;')}" class="lead-status-chip ${statusClass(row)}" aria-label="${reason.replaceAll('"','&quot;')}">${statusIcon(row)}</span></td>`;
+    }).join('');
+    return `<tr><th scope="row"><span class="effective-model-label"><i style="background:${modelColor(curve.model)}"></i>${curve.model}</span></th>${cells}</tr>`;
+  }).join('');
+  return `<thead><tr><th scope="col">Model</th>${headings}</tr></thead><tbody>${body}</tbody>`;
+}
+
 function populateVariableMetric(variableId,metricId,stateObj){
   const available=k=>isMetricAvailable(k,stateObj.region);
   const vars=variableKeys();
@@ -298,20 +370,194 @@ function initHomeControls(){
   options($('home-region-filter'),CONFIG.regions);periodOptions($('home-period-filter'));options($('home-baseline-filter'),MODELS);populateHomeMetric();options($('home-lead-filter'),['all',...CONFIG.leads],v=>v==='all'?'All':`${leadLabel(v)} (${v} h)`);
   const bind=()=>{const s=state.home;$('home-model-group-filter').value='Global';$('home-region-filter').value=s.region;$('home-period-filter').value=s.period;$('home-baseline-filter').value=s.baseline;$('home-primary-metric-filter').value=s.primaryMetric;$('home-lead-filter').value=s.forecastLead;setCustomVisible('home',s)};bind();
   $('home-model-group-filter').onchange=()=>{state.home.modelGroup='Global';renderHome()};
-  $('home-region-filter').onchange=e=>selectDashboardRegion(e.target.value,{origin:'home'});$('home-period-filter').onchange=e=>{state.home.period=e.target.value;setCustomVisible('home',state.home);renderHome()};$('home-baseline-filter').onchange=e=>{state.home.baseline=e.target.value;renderHome()};$('home-primary-metric-filter').onchange=e=>{state.home.primaryMetric=e.target.value;useActualMetricRegion(state.home,state.home.primaryMetric,'home')};$('home-lead-filter').onchange=e=>{state.home.forecastLead=e.target.value==='all'?'all':Number(e.target.value);renderHome()};handleCustomDates('home',state.home,renderHome);
-  $('reset-btn').onclick=()=>{Object.assign(state.home,{modelGroup:'Global',period:'30',baseline:'GFS',primaryMetric:'H500_ACC',forecastLead:120,comparisonMode:'date_lead'});bind();selectDashboardRegion(CONFIG.defaultRegion,{origin:'home'})};
+  $('home-region-filter').onchange=e=>selectDashboardRegion(e.target.value,{origin:'home'});$('home-period-filter').onchange=e=>{state.home.period=e.target.value;setCustomVisible('home',state.home);renderHome()};$('home-baseline-filter').onchange=e=>{state.home.baseline=e.target.value;renderHome()};$('home-primary-metric-filter').onchange=e=>{state.home.primaryMetric=e.target.value;useActualMetricRegion(state.home,state.home.primaryMetric,'home')};$('home-lead-filter').onchange=e=>{state.home.forecastLead=e.target.value==='all'?'all':Number(e.target.value);renderHome()};$('home-select-all').onclick=()=>{state.home.models=[...MODELS];renderHome()};$('home-clear-all').onclick=()=>{state.home.models=[];renderHome()};handleCustomDates('home',state.home,renderHome);
+  $('reset-btn').onclick=()=>{Object.assign(state.home,{modelGroup:'Global',period:'30',baseline:'GFS',primaryMetric:'H500_ACC',forecastLead:120,comparisonMode:'date_lead',models:[...MODELS]});bind();selectDashboardRegion(CONFIG.defaultRegion,{origin:'home'})};
 }
 
 function initDetailControls(){
   // Skill
-  populateVariableMetric('skill-variable-filter','skill-metric-filter',state.skill);options($('skill-region-filter'),CONFIG.regions);options($('skill-baseline-filter'),MODELS);initComparisonOptions('skill');periodOptions($('skill-period-filter'));
-  $('skill-region-filter').value=state.skill.region;$('skill-baseline-filter').value=state.skill.baseline;$('skill-comparison-filter').value=state.skill.comparisonMode;$('skill-period-filter').value=state.skill.period;
-  $('skill-variable-filter').onchange=e=>{state.skill.variable=e.target.value;state.skill.metric=metricsForVariable(state.skill.variable).find(k=>isMetricAvailable(k,state.skill.region))||metricsForVariable(state.skill.variable)[0];useActualMetricRegion(state.skill,state.skill.metric,'skill')};$('skill-metric-filter').onchange=e=>{state.skill.metric=e.target.value;useActualMetricRegion(state.skill,state.skill.metric,'skill')};$('skill-region-filter').onchange=e=>selectDashboardRegion(e.target.value,{origin:'skill'});$('skill-baseline-filter').onchange=e=>{state.skill.baseline=e.target.value;renderSkill()};$('skill-comparison-filter').onchange=e=>{state.skill.comparisonMode=e.target.value;renderSkill()};$('skill-period-filter').onchange=e=>{state.skill.period=e.target.value;setCustomVisible('skill',state.skill);renderSkill()};handleCustomDates('skill',state.skill,renderSkill);$('skill-select-all').onclick=()=>{state.skill.models=[...MODELS];renderSkill()};$('skill-clear-all').onclick=()=>{state.skill.models=[];renderSkill()};
+  populateVariableMetric('skill-variable-filter','skill-metric-filter',state.skill);options($('skill-region-filter'),CONFIG.regions);options($('skill-baseline-filter'),MODELS);periodOptions($('skill-period-filter'));
+  $('skill-region-filter').value=state.skill.region;$('skill-baseline-filter').value=state.skill.baseline;$('skill-period-filter').value=state.skill.period;
+  $('skill-variable-filter').onchange=e=>{state.skill.variable=e.target.value;state.skill.metric=metricsForVariable(state.skill.variable).find(k=>isMetricAvailable(k,state.skill.region))||metricsForVariable(state.skill.variable)[0];useActualMetricRegion(state.skill,state.skill.metric,'skill')};$('skill-metric-filter').onchange=e=>{state.skill.metric=e.target.value;useActualMetricRegion(state.skill,state.skill.metric,'skill')};$('skill-region-filter').onchange=e=>selectDashboardRegion(e.target.value,{origin:'skill'});$('skill-baseline-filter').onchange=e=>{state.skill.baseline=e.target.value;renderSkill()};$('skill-period-filter').onchange=e=>{state.skill.period=e.target.value;setCustomVisible('skill',state.skill);renderSkill()};handleCustomDates('skill',state.skill,renderSkill);$('skill-select-all').onclick=()=>{state.skill.models=[...MODELS];renderSkill()};$('skill-clear-all').onclick=()=>{state.skill.models=[];renderSkill()};
   // Scorecard
   options($('score-region-filter'),CONFIG.regions);options($('score-baseline-filter'),MODELS);initComparisonOptions('score');periodOptions($('score-period-filter'));$('score-region-filter').value=state.score.region;$('score-baseline-filter').value=state.score.baseline;$('score-comparison-filter').value=state.score.comparisonMode;$('score-period-filter').value=state.score.period;$('score-region-filter').onchange=e=>selectDashboardRegion(e.target.value,{origin:'score'});$('score-baseline-filter').onchange=e=>{state.score.baseline=e.target.value;renderScorecardPage()};$('score-comparison-filter').onchange=e=>{state.score.comparisonMode=e.target.value;renderScorecardPage()};$('score-period-filter').onchange=e=>{state.score.period=e.target.value;setCustomVisible('score',state.score);renderScorecardPage()};handleCustomDates('score',state.score,renderScorecardPage);
   // Time series
   populateVariableMetric('ts-variable-filter','ts-metric-filter',state.ts);options($('ts-region-filter'),CONFIG.regions);options($('ts-lead-filter'),['all',...CONFIG.leads],v=>v==='all'?'All Forecast Leads':`${leadLabel(v)} (${v} h)`);periodOptions($('ts-period-filter'));$('ts-region-filter').value=state.ts.region;$('ts-lead-filter').value=state.ts.lead;$('ts-period-filter').value=state.ts.period;
   $('ts-variable-filter').onchange=e=>{state.ts.variable=e.target.value;state.ts.metric=metricsForVariable(state.ts.variable).find(k=>isMetricAvailable(k,state.ts.region))||metricsForVariable(state.ts.variable)[0];useActualMetricRegion(state.ts,state.ts.metric,'ts')};$('ts-metric-filter').onchange=e=>{state.ts.metric=e.target.value;useActualMetricRegion(state.ts,state.ts.metric,'ts')};$('ts-region-filter').onchange=e=>selectDashboardRegion(e.target.value,{origin:'ts'});$('ts-lead-filter').onchange=e=>{state.ts.lead=e.target.value==='all'?'all':Number(e.target.value);renderTimeSeries()};$('ts-period-filter').onchange=e=>{state.ts.period=e.target.value;setCustomVisible('ts',state.ts);renderTimeSeries()};handleCustomDates('ts',state.ts,renderTimeSeries);$('ts-select-all').onclick=()=>{state.ts.models=[...MODELS];renderTimeSeries()};$('ts-clear-all').onclick=()=>{state.ts.models=[];renderTimeSeries()};
+}
+
+let explorerRegionLoading=false,explorerRegionsRequested=false;
+let explorerTab='patterns',explorerErrorVariable='H500',tradeoffX='H500_ACC',tradeoffY='H500_RMSE';
+const explorerSectionInfo={
+ patterns:{title:'Performance Patterns',description:'Date-by-lead fingerprints, lead-time advantage envelopes, regional patterns, rolling shifts and daily consistency.',
+  lead:'Forecast Lead affects Rolling Skill Shifts and Performance Consistency. Fingerprint, Advantage Envelope and Regional Atlas show all available leads.',
+  models:'Used by Rolling Skill Shifts and Performance Consistency; the Fingerprint and Envelope use Focus Model versus Baseline.'},
+ comparisons:{title:'Model Comparisons',description:'Examine head-to-head wins, magnitude-versus-frequency trade-offs and two-metric Pareto frontiers on common samples.',
+  lead:'Forecast Lead controls all three Model Comparisons graphics.',
+  models:'Used in all Model Comparisons; metric trade-offs use common dates across selected eligible models.'},
+ cases:{title:'Diagnostic Cases',description:'Find interesting verification dates and forecast leads. The Leadership Mosaic adapts to available models; case table and scatterplot compare focus versus baseline.',
+  lead:'Forecast Lead affects Verification Case Finder and Paired Scatterplot; the Leadership Mosaic shows all D0–D15.',
+  models:'Used by the Leadership Mosaic.'},
+ errors:{title:'Error Diagnostics',description:'Inspect signed bias evolution and the relationship between absolute mean bias and RMSE.',
+  lead:'Forecast Lead is not used in Error Diagnostics: both graphics show all available D0–D15 leads.',
+  models:'Used by the Bias–RMSE Portrait; signed Bias Evolution uses the focus model.'},
+ robustness:{title:'Comparison Robustness',description:'Explore block-bootstrap variability and sensitivity to individual verification weeks.',
+  lead:'Forecast Lead affects the bootstrap, Leave-One-Week-Out and the experimental comparison.',
+  models:'The bootstrap and weekly robustness use Focus Model versus Baseline.'}
+};
+function refreshExplorerSectionGuide(){
+ const guide=explorerSectionInfo[explorerTab],s=state.explorer;
+ $('explore-section-help-title').textContent=guide.title;
+ $('explore-section-help').textContent=guide.description;
+ $('explore-active-section-caption').textContent='Change selections below; relevant charts update automatically.';
+ $('explore-lead-impact-note').textContent=guide.lead;
+ $('explore-lead-filter-wrap').hidden=explorerTab==='errors';
+ $('explore-model-count').textContent=`${s.models.length} of ${MODELS.length} selected`;
+ $('explore-model-uses').textContent=guide.models;
+ $('explore-quality').hidden=explorerTab==='errors';
+}
+function initExplorerControls(){
+  const s=state.explorer;
+  options($('explore-metric-filter'),metricKeys(),k=>CONFIG.metrics[k].label);
+  options($('explore-region-filter'),CONFIG.regions);
+  options($('explore-model-filter'),MODELS);options($('explore-baseline-filter'),MODELS);
+  options($('explore-lead-filter'),CONFIG.leads,h=>`D${h/24} (F${h})`);
+  periodOptions($('explore-period-filter'));$('explore-rolling-days').value=String(s.rollingDays);
+  $('explore-metric-filter').onchange=e=>{s.metric=e.target.value;useActualMetricRegion(s,s.metric,'explorer')};
+  $('explore-region-filter').onchange=e=>selectDashboardRegion(e.target.value,{origin:'explorer'});
+  $('explore-model-filter').onchange=e=>{s.model=e.target.value;if(s.model===s.baseline)s.baseline=MODELS.find(m=>m!==s.model);renderExplorer()};
+  $('explore-baseline-filter').onchange=e=>{s.baseline=e.target.value;if(s.model===s.baseline)s.model=MODELS.find(m=>m!==s.baseline);renderExplorer()};
+  $('explore-lead-filter').onchange=e=>{s.lead=Number(e.target.value);renderExplorer()};
+  $('explore-period-filter').onchange=e=>{s.period=e.target.value;setCustomVisible('explore',s);renderExplorer()};
+  $('explore-rolling-days').onchange=e=>{s.rollingDays=Number(e.target.value);renderExplorer()};
+  options($('explore-tradeoff-x'),metricKeys(),k=>CONFIG.metrics[k].label);
+  options($('explore-tradeoff-y'),metricKeys(),k=>CONFIG.metrics[k].label);
+  $('explore-tradeoff-x').value=tradeoffX;$('explore-tradeoff-y').value=tradeoffY;
+  $('explore-tradeoff-x').onchange=e=>{tradeoffX=e.target.value;renderExplorer()};
+  $('explore-tradeoff-y').onchange=e=>{tradeoffY=e.target.value;renderExplorer()};
+  $('explore-select-all').onclick=()=>{s.models=[...MODELS];renderExplorer()};
+  $('explore-clear-all').onclick=()=>{s.models=[];renderExplorer()};
+  handleCustomDates('explore',s,renderExplorer);
+  document.querySelectorAll('[data-explorer-tab]').forEach(btn=>btn.addEventListener('click',()=>{
+    explorerTab=btn.dataset.explorerTab;
+    document.querySelectorAll('[data-explorer-tab]').forEach(b=>{
+      const selected=b.dataset.explorerTab===explorerTab;b.classList.toggle('active',selected);
+      b.setAttribute('aria-pressed',String(selected));
+    });
+    document.querySelectorAll('[data-explorer-section]').forEach(group=>group.hidden=group.dataset.explorerSection!==explorerTab);
+    renderExplorer();
+  }));
+  $('explore-case-mode').addEventListener('change',renderExplorer);
+  $('explore-error-variable').addEventListener('change',e=>{explorerErrorVariable=e.target.value;renderExplorer()});
+  $('explore-open-selected').onclick=()=>{if(s.selectedDate)openExplorerTimeseries(s.selectedDate,s.lead)};
+  $('explore-clear-selected').onclick=clearExplorerCase;
+  document.querySelectorAll('.explorer-svg-export').forEach(btn=>btn.onclick=async()=>{
+    if(btn.disabled)return;
+    const name=btn.dataset.svgKey,format=state.explorer;
+    const metric=format.metric,reg=format.region;
+    const title={fingerprint:'Daily Skill Fingerprint',matrix:'Head-to-Head Win Matrix',atlas:'Regional Skill Atlas',distribution:'Performance Consistency',envelope:'Lead-Time Advantage Envelope',winrate:'Advantage vs Win Frequency',tradeoff:'Two-Metric Trade-off and Pareto Frontier',bootstrap:'Paired Block-Bootstrap Uncertainty',leadership:'Model Leadership Mosaic',scatter:'Paired Model Performance Scatterplot',bias:'Signed Bias Evolution',portrait:'Bias–RMSE Portrait',robustness:'Skill Robustness'}[name]||'Verification Diagnostic';
+    const allLead=['fingerprint','envelope','atlas','leadership','bias','portrait'].includes(name);
+    const leadContext=allLead?'All forecast leads (D0–D15)':`F${format.lead}`;
+    const errVariable=CONFIG.variables[explorerErrorVariable].label;
+    const errBias=`${explorerErrorVariable}_BIAS`,errRMSE=`${explorerErrorVariable}_RMSE`;
+    const filenameMetric=name==='tradeoff'?`${tradeoffX}_${tradeoffY}`:['bias','portrait'].includes(name)?`${errBias}${name==='portrait'?'_RMSE':''}`:metric;
+    let subtitle;
+    if(name==='bias')subtitle=`${errVariable} signed Bias · ${reg} · ${format.model} · ${leadContext} · ${rangeLabel(format)}`;
+    else if(name==='portrait')subtitle=`${errVariable} Bias + RMSE · ${reg} · ${format.models.length} selected models · ${leadContext} · ${rangeLabel(format)}`;
+    else if(name==='tradeoff')subtitle=`${CONFIG.metrics[tradeoffX].label} vs ${CONFIG.metrics[tradeoffY].label} · ${reg} · ${leadContext} · baseline ${format.baseline} · common samples · ${rangeLabel(format)}`;
+    else if(name==='bootstrap')subtitle=`${CONFIG.metrics[metric].label} · ${reg} · ${leadContext} · ${format.model} vs ${format.baseline} · 7-day blocks · ${rangeLabel(format)}`;
+    else if(name==='leadership')subtitle=`${CONFIG.metrics[metric].label} · ${reg} · ${leadContext} · ${format.models.length} selected models · ${rangeLabel(format)}`;
+    else subtitle=`${CONFIG.metrics[metric].label} · ${reg} · ${leadContext} · vs ${format.baseline} · ${rangeLabel(format)}`;
+    btn.disabled=true;
+    try{await exportExplorerSvg(btn.dataset.svgId,`omd-${name}_${filenameMetric}_${reg.replace(/[^a-zA-Z0-9]+/g,'-')}.png`,title,subtitle)}
+    catch(err){console.error('Explorer export failed',err);alert('Could not export this graphic. Please try again.')}
+    finally{btn.disabled=false}
+  });
+}
+function refreshSelectedDateBar(){
+  const s=state.explorer;
+  const hasSelection=Boolean(s.selectedDate);
+  $('explore-selected-date').textContent=hasSelection?
+    `Selected verification date: ${s.selectedDate} · F${s.lead} · ${s.model} vs ${s.baseline}. Click the highlighted cell, row, or point again to deselect.`:
+    'Click a Mosaic cell, Case Finder row, or scatterplot point to highlight its date. Click again to deselect.';
+  $('explore-open-selected').disabled=!hasSelection;
+  $('explore-clear-selected').disabled=!hasSelection;
+  $('explore-clear-selected').setAttribute('aria-label','Clear selected verification date');
+  $('explore-selected-date').closest('.diagnostic-case-bar')?.classList.toggle('has-selection',hasSelection);
+}
+function clearExplorerCase(){
+  if(!state.explorer.selectedDate)return;
+  state.explorer.selectedDate=null;
+  refreshSelectedDateBar();renderExplorer();
+}
+function selectExplorerCase(date,lead){
+  const s=state.explorer;
+  const nextLead=CONFIG.leads.includes(Number(lead))?Number(lead):s.lead;
+  // Selecting the same date AND lead a second time is a reversible toggle;
+  // choosing a different lead on the same date updates the linked selection.
+  if(s.selectedDate===date && s.lead===nextLead){clearExplorerCase();return;}
+  s.selectedDate=date;s.lead=nextLead;
+  refreshSelectedDateBar();renderExplorer();
+}
+function openExplorerTimeseries(date,lead){
+  const s=state.explorer,t=state.ts;
+  t.metric=s.metric;t.variable=CONFIG.metrics[s.metric].variable;t.region=s.region;t.lead=lead;t.models=[s.baseline,s.model];
+  t.period=s.period;t.customStart=s.customStart;t.customEnd=s.customEnd;t.referenceDate=date;
+  setRoute('timeseries');
+  const note=$('ts-verification-note');
+  if(note)note.textContent+=` · Selected diagnostic verification date ${date} (F${lead}).`;
+}
+function renderExplorer(){
+  if(state.route!=='explorer')return;
+  const s=state.explorer;if(!ensureRegionReady(s.region,renderExplorer))return;
+  const selected=availableOptions($('explore-metric-filter'),metricKeys(),k=>metricOptionLabel(k,s.region),k=>isMetricAvailable(k,s.region),s.metric);
+  if(selected)s.metric=selected;
+  $('explore-region-filter').value=s.region;
+  $('explore-model-filter').value=s.model;$('explore-baseline-filter').value=s.baseline;
+  $('explore-lead-filter').value=String(s.lead);$('explore-period-filter').value=s.period;
+  $('explore-rolling-days').value=String(s.rollingDays);setCustomVisible('explore',s);
+  $('explore-error-variable').value=explorerErrorVariable;
+  renderChips('explore-model-chips',MODELS,s.models,next=>{s.models=next;renderExplorer()});
+  refreshExplorerSectionGuide();
+  refreshSelectedDateBar();
+  const w=rangeArgs(s),core={...w,metric:s.metric,region:s.region,baseline:s.baseline,model:s.model};
+  const detailed={...core,models:s.models,lead:s.lead};
+  renderCoverage(data,detailed);
+  if(explorerTab==='patterns'){
+    renderFingerprint(data,core,({date,lead,model,baseline,metric,region})=>{
+      openExplorerTimeseries(date,lead);
+    });
+    renderAdvantageEnvelope(data,core);
+    renderAtlas(data,{...w,model:s.model,baseline:s.baseline,metric:s.metric,regions:CONFIG.regions});
+    renderRolling(data,{...w,models:s.models,baseline:s.baseline,metric:s.metric,region:s.region,lead:s.lead,rollingDays:s.rollingDays});
+    renderDistribution(data,{...w,models:s.models,baseline:s.baseline,metric:s.metric,region:s.region,lead:s.lead});
+    const loaded=CONFIG.regions.filter(r=>data.isRegionLoaded(r)).length;
+    $('explore-regions-status').textContent=`${loaded}/${CONFIG.regions.length} regions loaded${explorerRegionLoading?' · loading remaining regions…':''}. Only records from the actual region are used.`;
+    if(!explorerRegionsRequested){
+      explorerRegionsRequested=true;explorerRegionLoading=true;
+      Promise.allSettled(CONFIG.regions.filter(r=>!data.isRegionLoaded(r)).map(r=>data.ensureRegion(r))).then(results=>{
+        explorerRegionLoading=false;syncDateLimits();updateDataStatus();
+        const failed=results.filter(r=>r.status==='rejected');if(failed.length)console.warn('Explorer region load incomplete',failed);
+        if(state.route==='explorer'&&explorerTab==='patterns')renderExplorer();
+      });
+    }
+  }else if(explorerTab==='comparisons'){
+    renderMatrix(data,{...w,models:s.models,metric:s.metric,region:s.region,lead:s.lead});
+    renderWinFrequency(data,detailed);
+    $('explore-tradeoff-x').value=tradeoffX;$('explore-tradeoff-y').value=tradeoffY;
+    renderMetricTradeoffs(data,{...w,models:s.models,baseline:s.baseline,region:s.region,lead:s.lead,metricX:tradeoffX,metricY:tradeoffY});
+  }else if(explorerTab==='cases'){
+    renderLeadership(data,{...w,models:s.models,metric:s.metric,region:s.region},s.selectedDate,selectExplorerCase);
+    renderCases(data,detailed,s.selectedDate,selectExplorerCase,openExplorerTimeseries);
+    renderScatter(data,detailed,s.selectedDate,selectExplorerCase);
+  }else if(explorerTab==='errors'){
+    const errorOpts={...w,model:s.model,models:s.models,region:s.region,variable:explorerErrorVariable};
+    renderBiasEvolution(data,errorOpts);
+    renderPortrait(data,errorOpts);
+  }else if(explorerTab==='robustness'){
+    renderBootstrap(data,detailed);
+    renderRobustness(data,detailed);
+  }
 }
 
 function initComparisonOptions(prefix){
@@ -351,26 +597,60 @@ function metricRankValue(value,metricKey){
 }
 function renderHome(){
   const s=state.home;if(!ensureRegionReady(s.region,renderHome))return;populateHomeMetric();$('home-region-filter').value=s.region;const w=rangeArgs(s),vis=MODELS;
-  renderHomePerformance(vis,w);renderHomeScorecard(vis,w);renderSignals(vis);renderCategorySummary(vis,w);
+  renderHomePerformance(s.models,w);renderHomeScorecard(vis,w);renderHorizon(data,{region:s.region,models:MODELS,period:s.period,startDate:s.customStart,endDate:s.customEnd});renderSignals(vis);renderCategorySummary(vis,w);
 }
 function renderHomePerformance(vis,w){
   const s=state.home,metric=s.primaryMetric,m=CONFIG.metrics[metric],v=variableForMetric(metric),lead=s.forecastLead==='all'?null:s.forecastLead;
-  // Overall ranking uses the aggregate verification score across the selected period/lead.
-  const rank=vis.map(model=>({model,value:data.aggregateValue({...w,region:s.region,models:[model],metrics:[metric],leads:lead==null?null:[lead]})})).sort((a,b)=>metricRankValue(a.value,metric)-metricRankValue(b.value,metric));
+  const isAll=lead==null;
+  const allCoverage=data.modelLeadAvailability({...w,region:s.region,metric,models:MODELS,lead});
+  const coverageByName=new Map(allCoverage.map(c=>[c.model,c]));
+  renderChips('home-model-chips',MODELS,vis,next=>{s.models=next;renderHome()},name=>{
+    $('home-performance-chart')?._chartSetHighlight?.(name);
+    $('home-ranking-list').querySelectorAll('.home-rank-row').forEach(row=>row.classList.toggle('highlighted',!!name&&row.dataset.model===name));
+  });
+  $('home-model-chips').querySelectorAll('.chip').forEach(button=>{
+    const availability=coverageByName.get(button.dataset.model);
+    const count=availability?.leads.length||0;
+    button.title=`${button.dataset.model}: ${count} forecast hours, ${availability?.dates||0} dates, ${availability?.records||0} values in the selected filters`;
+  });
+  const common=isAll?data.comparableAllLeadRows({...w,region:s.region,metric,models:vis}):null;
+  const recordsByModel=common?.byModel||new Map();
+  const availableRankValue=model=>isAll
+    ?data.aggregateMetricValues((recordsByModel.get(model)||[]).map(r=>r.value),metric)
+    :data.aggregateValue({...w,region:s.region,models:[model],metrics:[metric],leads:[lead]});
+  const rank=vis.map(model=>({model,value:availableRankValue(model)}))
+    .sort((a,b)=>metricRankValue(a.value,metric)-metricRankValue(b.value,metric));
   const rankableCount=rank.filter(r=>Number.isFinite(r.value)).length;
-  const leadText=lead==null?'all forecast leads':`${leadLabel(lead)} (${lead} h)`;
+  const leadText=isAll?'shared forecast hours':`${leadLabel(lead)} (${lead} h)`;
   $('home-performance-title').textContent=`${v.label} — ${m.metricType} Rank History`;
   $('home-performance-subtitle').textContent=`Daily model rank for ${s.region} · ${rangeLabel(s)} · ${leadText}. Rank 1 is best; the left list is the overall period ranking. Baseline does not affect ranks.`;
   $('home-ranking-metric').textContent=`Overall ${m.metricType}`;
-  const list=$('home-ranking-list');
-  let rankPosition=0;
+  const list=$('home-ranking-list');let rankPosition=0;
   list.innerHTML=rank.map(r=>`<button class="home-rank-row" type="button" data-model="${r.model}" style="--rank-color:${modelColor(r.model)}"><span class="rank-number">${Number.isFinite(r.value)&&rankableCount>1?++rankPosition:'N/A'}</span><span class="rank-model"><i style="background:${modelColor(r.model)}"></i>${r.model}</span><strong>${metricFmt(metric,r.value)}</strong></button>`).join('');
-
-  // Build one absolute daily series per model, then rank models independently at each valid date.
+  const note=$('home-lead-comparison-note'),panel=$('home-lead-coverage');
+  panel.hidden=!isAll;
+  if(isAll){
+    const overlap=common.keys.length,sharedLeads=common.leads;
+    note.textContent=vis.length<2?'Select at least two models for a comparable ranking.':
+      overlap?`Comparable “All”: ${overlap} shared date/hour samples across ${sharedLeads.length} forecast hours (${sharedLeads.map(h=>`F${h}`).join(', ')}). Every enabled model is ranked using exactly these same samples.`:
+        'No shared date/hour samples for every selected model. Turn off models with limited or missing coverage to compare the remaining models.';
+    $('home-lead-coverage-summary').textContent=`${sharedLeads.length} shared hours · ${overlap} matched samples`;
+    const tableRows=allCoverage.map(c=>`<tr><th><span class="coverage-model-dot" style="background:${modelColor(c.model)}"></span>${c.model}${vis.includes(c.model)?' ✓':''}</th><td>${c.leads.length?c.leads.map(h=>`F${h}`).join(', '):'N/A'}</td><td>${c.dates}</td><td>${c.records}</td></tr>`).join('');
+    $('home-lead-coverage-table').innerHTML=`<div class="coverage-scroll"><table class="coverage-table"><thead><tr><th>Model (✓ selected)</th><th>Available forecast hours</th><th>Dates</th><th>Values</th></tr></thead><tbody>${tableRows}</tbody></table></div><p class="coverage-description muted">Coverage is based on the selected metric, region and date window. For “All,” samples must have the same verification date and forecast hour in every enabled model. Turning a model off recomputes this intersection.</p>`;
+  }else{
+    note.textContent=`At F${lead}, toggle models to show or hide their rankings. The “All” option uses a shared-date/forecast-hour comparison instead of combining unequal model ranges.`;
+  }
+  // The All-lead chart uses exactly the same shared raw rows as the overall ranking;
+  // no model may benefit from extra early or missing late forecast hours.
   const valuesByModel=new Map(),dateSet=new Set();
   for(const model of vis){
-    const daily=data.dailyValueSeries({...w,model,metric,region:s.region,lead});
-    const map=new Map(daily.map(d=>[d.date.getTime(),d.value]));
+    let daily;
+    if(isAll){
+      const groups=new Map();
+      for(const r of recordsByModel.get(model)||[]){const key=r.valid_date.getTime();if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r.value)}
+      daily=[...groups].map(([key,values])=>({date:new Date(key),value:data.aggregateMetricValues(values,metric)}));
+    }else daily=data.dailyValueSeries({...w,model,metric,region:s.region,lead});
+    const map=new Map(daily.filter(d=>Number.isFinite(d.value)).map(d=>[d.date.getTime(),d.value]));
     valuesByModel.set(model,map);for(const x of map.keys())dateSet.add(x);
   }
   const rankSeries=new Map(vis.map(model=>[model,[]]));
@@ -378,20 +658,21 @@ function renderHomePerformance(vis,w){
   for(const x of dates){
     const entries=vis.map(model=>({model,value:valuesByModel.get(model)?.get(x)})).filter(d=>Number.isFinite(d.value));
     entries.sort((a,b)=>metricRankValue(a.value,metric)-metricRankValue(b.value,metric));
-    if(entries.length<2)continue; // do not claim a rank when only one model has data
+    if(entries.length<2)continue;
     entries.forEach((entry,index)=>rankSeries.get(entry.model).push({x,y:index+1,rawValue:entry.value,label:dateFull(x)}));
   }
   const series=vis.map(model=>({name:model,color:modelColor(model),...chartModelStyle(model),data:rankSeries.get(model)}));
   const chart=$('home-performance-chart');
   const setRankHighlight=name=>{list.querySelectorAll('.home-rank-row').forEach(row=>row.classList.toggle('highlighted',!!name&&row.dataset.model===name));list.classList.toggle('has-highlight',!!name)};
-  renderLineChart(chart,series,{formatX:dateShort,formatY:y=>String(Math.round(y)),formatTooltipY:y=>`Rank ${Math.round(y)}`,formatTooltipExtra:point=>metricFmt(metric,point.rawValue),tooltipExtraLabel:'Value',tooltipSort:(a,b)=>a.point.y-b.point.y,ySuffix:'',zeroLine:false,tooltipTitle:`${m.short} rank`,emptyMessage:'N/A — no verification data for the selected metric, region, dates and forecast lead.',onSeriesHover:setRankHighlight,showLegend:false,maxSegmentGap:1.5*86400000,xAxisLabel:'Date',yAxisLabel:'Model Rank (1 = Best)',yDomain:[1,vis.length],yTickValues:vis.map((_,i)=>i+1),reverseY:true,interactive:true,exportName:`model-rank-history_${metric}_${s.region}.png`,exportTitle:`Model Rank History — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${rangeLabel(s)} · ${leadText}`});
+  renderLineChart(chart,series,{formatX:dateShort,formatY:y=>String(Math.round(y)),formatTooltipY:y=>`Rank ${Math.round(y)}`,formatTooltipExtra:point=>metricFmt(metric,point.rawValue),tooltipExtraLabel:'Value',tooltipSort:(a,b)=>a.point.y-b.point.y,ySuffix:'',zeroLine:false,tooltipTitle:`${m.short} rank`,emptyMessage:isAll?'N/A — no identical verification date/lead samples for all enabled models. Toggle models to find overlapping coverage.':'N/A — no verification data for the selected metric, region, dates and forecast lead.',onSeriesHover:name=>{setRankHighlight(name);highlightModelChip('home-model-chips',name)},showLegend:false,maxSegmentGap:1.5*86400000,xAxisLabel:'Date',yAxisLabel:'Model Rank (1 = Best)',yDomain:[1,Math.max(2,vis.length)],yTickValues:Array.from({length:Math.max(2,vis.length)},(_,i)=>i+1),reverseY:true,interactive:true,exportName:`model-rank-history_${metric}_${s.region}.png`,exportTitle:`Model Rank History — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${rangeLabel(s)} · ${leadText}${isAll?` · ${common.keys.length} common samples`:''}`});
   list.querySelectorAll('.home-rank-row').forEach(row=>{row.addEventListener('mouseenter',()=>{setRankHighlight(row.dataset.model);chart._chartSetHighlight?.(row.dataset.model)});row.addEventListener('mouseleave',()=>{setRankHighlight(null);chart._chartSetHighlight?.(null)});row.addEventListener('focus',()=>{setRankHighlight(row.dataset.model);chart._chartSetHighlight?.(row.dataset.model)});row.addEventListener('blur',()=>{setRankHighlight(null);chart._chartSetHighlight?.(null)})});
 }
 
 function renderHomeScorecard(vis,w){
   const lead=state.home.forecastLead==='all'?null:state.home.forecastLead;
   const chosenRegion=state.home.region;
-  $('home-scorecard-region-note').textContent=`Selected region: ${chosenRegion}. Each metric uses that region when available, otherwise its labeled CONUS or Global domain. The Primary Metric changes the ranking plot; this scorecard always shows all six metrics. Scores from different domains are not directly equivalent.`;
+  $('home-scorecard-region-note').textContent=`Selected region: ${chosenRegion}. Each metric uses that region when available, otherwise its labeled CONUS or Global domain. The Primary Metric changes the ranking plot; this scorecard always shows all six metrics. Scores from different domains are not directly equivalent.`+
+    (state.home.forecastLead==='all'?' Note: this scorecard uses model-to-baseline matched pairs separately for each model, so different pairs can span different lead ranges; only the Home rank-history chart applies the common-sample intersection across enabled models.':'');
   const rows=homeCoreMetrics().map(k=>{
     const m=CONFIG.metrics[k],v=variableForMetric(k),actualRegion=regionForMetric(k,chosenRegion);
     const cells=vis.map(model=>{
@@ -468,38 +749,51 @@ function renderCategorySummary(vis,w){
     return `<div class="category-card"><div class="category-title">${cat}</div><div class="category-value">${fmtPct(avg(scores))}</div><div class="category-detail">Leader: ${leader?.[0]||'N/A'} · ${fmtPct(leader?.[1])}${note}</div></div>`;
   }).join('');
 }
-// The Skill chart is baseline-relative; EVS-style inference is plotted in
-// native metric units in a separate, optional paired-difference panel.
-let showSkillSignificance=false;
+// The lower Skill chart remains in percent; EVS's only pointwise
+// significance test operates on matched native-unit daily score differences.
+// We rescale the EVS interval for visual placement, not for re-testing skill.
+let showSkillSignificance=true;
 function highlightSkillCharts(model){
-  for(const id of ['skill-chart','skill-difference-chart','skill-mean-chart'])$(id)?._chartSetHighlight?.(model);
+  for(const id of ['skill-chart','skill-mean-chart','skill-effective-chart'])$(id)?._chartSetHighlight?.(model);
   highlightModelChip('skill-model-chips',model);
 }
 function renderSkill(){
   const s=state.skill;if(!ensureRegionReady(s.region,renderSkill))return;
   populateVariableMetric('skill-variable-filter','skill-metric-filter',s);
   $('skill-region-filter').value=s.region;$('skill-baseline-filter').value=s.baseline;
-  $('skill-comparison-filter').value=s.comparisonMode;$('skill-period-filter').value=s.period;
+  $('skill-period-filter').value=s.period;
   setCustomVisible('skill',s);
   renderChips('skill-model-chips',MODELS,s.models,next=>{s.models=next;renderSkill()},highlightSkillCharts);
   const m=CONFIG.metrics[s.metric],v=variableForMetric(s.metric),w=rangeArgs(s);
   const unit=m.unit?.trim()||'',metricAxis=`${m.metricType}${unit?` (${unit})`:''}`;
   const fmtValue=value=>`${value.toFixed(m.decimals??2)}${m.unit||''}`;
-  $('skill-chart-title').textContent=`${v.label} — ${m.metricType}`;
-  $('skill-chart-subtitle').textContent=`${s.region} · percent improvement versus ${s.baseline} · ${rangeLabel(s)}`;
+  $('skill-chart-title').textContent=`Difference from ${s.baseline} — ${v.label} — ${m.metricType}`;
+  $('skill-chart-subtitle').textContent=`${s.region} · percentage skill relative to ${s.baseline} · ${rangeLabel(s)}`;
   const skillSeries=s.models.map(model=>({name:model,color:modelColor(model),...chartModelStyle(model),
-    data:data.skillByLead({...w,model,baseline:s.baseline,metric:s.metric,region:s.region,comparisonMode:s.comparisonMode})
+    data:data.skillByLead({...w,model,baseline:s.baseline,metric:s.metric,region:s.region,comparisonMode:'date_lead'})
       .map(d=>({x:d.lead/24,y:d.value,label:`Day ${d.lead/24} · ${d.lead} h`}))}));
   const onHover=highlightSkillCharts;
+  $('skill-significance-toggle').checked=showSkillSignificance;
+  const significance=showSkillSignificance
+    ?buildSkillSignificanceBoxes(data,{...w,models:s.models,baseline:s.baseline,
+        metric:s.metric,region:s.region,comparisonMode:'date_lead'})
+    :null;
+  const boxes=significance?.boxes.map(box=>({...box,color:modelColor(box.model)}))||[];
+  $('skill-significance-status').textContent=showSkillSignificance
+    ?`${significance.comparisons} EVS-style 95% intervals · ≥2 paired dates`
+    :'Confidence intervals hidden';
   renderLineChart($('skill-chart'),skillSeries,{formatX:x=>String(Math.round(x)),xDomain:[0,15],
     xTickValues:CONFIG.leads.map(h=>h/24),xAxisLabel:'Forecast Lead Time (Days)',
     yAxisLabel:`Skill vs ${s.baseline} (%)`,ySuffix:'%',zeroLine:true,forceZeroTick:true,
+    significanceBoxes:boxes,
     tooltipTitle:m.short,emptyMessage:'N/A — choose models or select a metric with available verification data.',
     interactive:true,onSeriesHover:onHover,exportName:`skill-vs-lead_${s.metric}_${s.region}.png`,
-    exportTitle:`Skill vs Forecast Lead — ${v.label} ${m.metricType}`,
-    exportSubtitle:`${s.region} · ${rangeLabel(s)} · Baseline: ${s.baseline}`});
-  $('skill-verification-note').textContent=`${metricDirectionText(m)} Positive skill means improvement relative to ${s.baseline}. `+
-    'The optional EVS-style significance analysis uses paired daily raw statistic differences in a separate chart below; it does not test this nonlinear percentage directly.';
+    exportTitle:`Difference from ${s.baseline} — ${v.label} — ${m.metricType}`,
+    exportSubtitle:`${s.region} · ${rangeLabel(s)} · Baseline: ${s.baseline}${showSkillSignificance?' · 95% significance intervals':''}`});
+  $('skill-verification-note').textContent=`${metricDirectionText(m)} Positive percentages indicate improvement relative to ${s.baseline}. `+
+    (showSkillSignificance
+      ?`The thin outlined boxes use only EVS-style 95% intervals based on matched daily raw model-minus-baseline score differences. ${significance.significant} of ${significance.comparisons} paired raw-score means exclude zero. Each box is rescaled for display on the percent axis; it is not a confidence interval for percentage skill, especially for nonlinear RMSE, ACC, and Bias aggregation. Signed Bias differences do not by themselves establish improved skill.`
+      :'Enable Significance to display approximate 95% thresholds on this chart.');
 
   // New absolute-statistic die-off curve: daily arithmetic mean per hour, not
   // paired or baseline-relative. Missing hours and models remain gaps/N/A.
@@ -518,38 +812,34 @@ function renderSkill(){
     exportSubtitle:`${s.region} · ${rangeLabel(s)} · Arithmetic mean of available daily scores`});
   $('skill-mean-note').textContent='Each point is the arithmetic mean of available daily verification values for that model and forecast hour. This is an absolute statistic, not baseline-relative skill. Only observed values are used; different models may have different sample counts.';
 
-  $('skill-significance-toggle').checked=showSkillSignificance;
-  const panel=$('skill-difference-panel');panel.classList.toggle('hidden',!showSkillSignificance);
-  const status=$('skill-significance-status');
-  if(showSkillSignificance){
-    const result=buildEvsDifferenceSeries(data,{...w,models:s.models,baseline:s.baseline,
-      metric:s.metric,region:s.region,comparisonMode:s.comparisonMode});
-    const bars=result.boxes.map(b=>({...b,color:modelColor(b.model)}));
-    status.textContent=`${result.comparisons} model–hour confidence intervals · ≥2 paired dates`;
-    $('skill-difference-title').textContent=`Paired Mean Difference from ${s.baseline}`;
-    $('skill-difference-subtitle').textContent=`EVS-style 95% confidence intervals · ${m.short} · ${s.region} · ${rangeLabel(s)}`;
-    const diffSeries=result.series.map(s1=>({name:s1.model,color:modelColor(s1.model),
-      ...chartModelStyle(s1.model),data:s1.points.map(d=>({x:d.x,y:d.y,
-        label:`Day ${d.x} · ${d.lead} h · n=${d.n}`}))}));
-    renderLineChart($('skill-difference-chart'),diffSeries,{formatX:x=>String(Math.round(x)),
-      xDomain:[0,15],xTickValues:CONFIG.leads.map(h=>h/24),xAxisLabel:'Forecast Lead Time (Days)',
-      yAxisLabel:`Model − ${s.baseline} (${unit||'score'})`,ySuffix:m.unit||'',
-      formatY:(y,step)=>`${cleanAxisTickLabel(y,step,m.decimals??2)}${m.unit||''}`,
-      formatTooltipY:fmtValue,zeroLine:true,forceZeroTick:true,
-      significanceBoxes:bars,tooltipTitle:`Model − ${s.baseline}`,maxSegmentGap:1,
-      emptyMessage:'N/A — select at least one model other than the baseline with paired observations.',
-      interactive:true,onSeriesHover:onHover,
-      exportName:`evs-confidence-difference_${s.metric}_${s.region}.png`,
-      exportTitle:`EVS-style Paired Difference — ${v.label} ${m.metricType}`,
-      exportSubtitle:`${s.region} · ${rangeLabel(s)} · Baseline: ${s.baseline} · 95% intervals`});
-    $('skill-difference-note').textContent=result.comparisons
-      ?`${result.significant} of ${result.comparisons} paired model–hour mean differences fall outside their own 95% zero-centered intervals. The interval method matches EVS's sample-size factors (1.960/2.000/2.042/2.228), but uses available daily regional summaries rather than raw matched forecast–observation pairs. Multiple tests and serial correlation are not adjusted for.`
-      :'No confidence intervals available: each compared model needs at least two matched daily verification values per forecast hour.';
-  }else{
-    status.textContent='';$('skill-difference-chart')._chartCleanup?.();$('skill-difference-chart')._chartSetHighlight=null;
-    $('skill-difference-chart').innerHTML='';
-  }
-  renderComparisonCoverage('skill',{...w,region:s.region,metric:s.metric,baseline:s.baseline,comparisonMode:s.comparisonMode});
+  // Effective lead-time gain: independent available-sample per-lead means
+  // for model and baseline; retain the relative-skill chart's paired method.
+  const effectiveModels=s.models.filter(model=>model!==s.baseline);
+  const effectiveCurves=effectiveModels.map(model=>effectiveLeadSeries(data,{...w,
+    model,baseline:s.baseline,metric:s.metric,region:s.region}));
+  const effectiveSeries=effectiveCurves.map(curve=>({name:curve.model,color:modelColor(curve.model),
+    ...chartModelStyle(curve.model),data:curve.points}));
+  $('skill-effective-title').textContent=`Effective Lead-Time Gain vs ${s.baseline} — ${v.label} — ${m.metricType}`;
+  $('skill-effective-subtitle').textContent=`${s.region} · ${rangeLabel(s)} · baseline ${s.baseline} F0–F360 · independently available forecast-hour means`;
+  renderLineChart($('skill-effective-chart'),effectiveSeries,{formatX:x=>String(Math.round(x)),
+    xDomain:[0,15],xTickValues:CONFIG.leads.map(h=>h/24),xAxisLabel:`${s.baseline} Forecast Lead (Days)`,
+    yAxisLabel:'Equivalent Lead-Time Gain (hours)',ySuffix:' h',zeroLine:true,forceZeroTick:true,
+    formatTooltipY:y=>`${Math.abs(y)<0.05?'0.0':`${y>0?'+':''}${y.toFixed(1)}`} h`,formatY:(y,step)=>cleanAxisTickLabel(y,step),
+    maxSegmentGap:1,tooltipTitle:'Lead-time gain',
+    emptyMessage:'No equivalent hours calculable from available forecast-hour means. See coverage below for explanations; missing is not zero.',
+    interactive:true,onSeriesHover:onHover,exportName:`effective-lead-time_${s.metric}_${s.region}.png`,
+    exportTitle:`Effective Lead-Time Gain vs ${s.baseline} — ${v.label} — ${m.metricType}`,
+    exportSubtitle:`${s.region} · ${rangeLabel(s)} · Independent daily means; unplotted leads are not zero`});
+  const counts={matched:0,'below-range':0,'beyond-range':0,gap:0,'no-baseline-data':0,'no-model-data':0,insufficient:0,missing:0};
+  for(const curve of effectiveCurves)for(const r of curve.rows){counts[r.status]=(counts[r.status]||0)+1;}
+  const unmatched=effectiveCurves.length*CONFIG.leads.length-counts.matched;
+  $('skill-effective-coverage-summary').textContent=`${counts.matched} plotted · ${unmatched} unresolved`;
+  $('skill-effective-coverage-table').innerHTML=effectiveLeadCoverageMatrix(effectiveCurves,s.baseline);
+  $('skill-effective-note').textContent=`Gain = equivalent ${s.baseline}-quality forecast hour for a model minus ${s.baseline}'s forecast hour. Positive hours mean the model retains quality longer; negative hours mean it loses quality sooner. A genuine same-hour fitted-quality match is plotted as 0.0 h. Missing portions of lines do NOT mean zero lead-time difference or necessarily missing model forecasts. The coverage key distinguishes missing baseline/model means, targets requiring leads earlier/later than the model's full available range, and missing lead steps. Both curves use independent arithmetic means of each model's available daily scores (as in Forecast Hour Mean); dates and sample counts may differ. The means are sample-count-weighted when fitting non-increasing quality, followed by interpolation only between adjacent available leads. Bias/SPEED_ERR use distance from zero. No extrapolation or confidence testing of gains.`;
+  const curveMap=new Map(effectiveCurves.map(c=>[c.model,new Map(c.rows.map(r=>[r.baselineHour,r]))]));
+  $('skill-effective-table-summary').textContent=`${effectiveModels.length} model${effectiveModels.length===1?'':'s'} · ${counts.matched} computed equivalents`;
+  $('skill-effective-table').innerHTML=`<thead><tr><th>${s.baseline} lead</th>${effectiveModels.map(model=>`<th>${model}</th>`).join('')}</tr></thead><tbody>${CONFIG.leads.map(hour=>`<tr><th>F${hour} (D${hour/24})</th>${effectiveModels.map(model=>{const r=curveMap.get(model)?.get(hour);return `<td title="${effectiveLeadExplanation(r,model,s.baseline).replaceAll('"','&quot;')}">${effectiveLeadCell(r)}</td>`}).join('')}</tr>`).join('')}</tbody>`;
+  renderComparisonCoverage('skill',{...w,region:s.region,metric:s.metric,baseline:s.baseline,comparisonMode:'date_lead'});
 }
 
 function renderScorecardPage(){
@@ -558,7 +848,7 @@ function renderScorecardPage(){
   const w=rangeArgs(s);$('scorecard-context').textContent=`Selected region: ${s.region} · ${rangeLabel(s)} · relative to ${s.baseline}`;
   $('score-comparison-note').textContent=(s.comparisonMode==='same_source'?'Strict comparison: only scores verified against the same dataset are included.':'Standard comparison: scores are matched by verification date and forecast lead.')+
     ` Each metric uses ${s.region} when available; CONUS-only products and metrics unavailable in the selected domain use their actual available verification region, labeled on each card. Cross-domain scores are not directly equivalent.`;
-  $('scorecard-sections').innerHTML=CONFIG.scorecardGroups.map(group=>{
+  $('scorecard-sections').innerHTML=CONFIG.scorecardGroups.map((group,groupIndex)=>{
     const metricBlocks=group.metrics.map(k=>{
       const m=CONFIG.metrics[k],actualRegion=regionForMetric(k,s.region);
       const rows=MODELS.map(model=>{
@@ -571,7 +861,7 @@ function renderScorecardPage(){
       }).join('');
       return `<section class="metric-block"><div class="metric-block-head"><div><strong>${m.metricType}</strong><span class="metric-region-note">${metricRegionLabel(k,s.region)}</span></div><small>Percent improvement vs ${s.baseline}</small></div><div class="mini-score-wrap"><table class="mini-score-table"><thead><tr><th>Model</th>${CONFIG.scorecardLeads.map(h=>`<th>${leadLabel(h)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div></section>`;
     }).join('');
-    return `<article class="card scorecard-panel"><header><div><h3>${group.title}</h3><p>${variableForMetric(group.metrics[0]).level}</p></div></header>${metricBlocks}</article>`;
+    return `<article class="card scorecard-panel"><header><div><h3>${group.title}</h3><p>${variableForMetric(group.metrics[0]).level}</p></div><div class="table-export-actions compact-export" role="group" aria-label="Export category scorecard"><span class="export-label">Export</span><button class="small-button table-export-btn" type="button" data-export-table="scorecard-group-${groupIndex}" data-export-format="png">PNG</button><button class="small-button table-export-btn" type="button" data-export-table="scorecard-group-${groupIndex}" data-export-format="csv">CSV</button></div></header>${metricBlocks}</article>`;
   }).join('');
 }
 
@@ -580,18 +870,71 @@ function renderTimeSeries(){
   const m=CONFIG.metrics[s.metric],v=variableForMetric(s.metric),lead=s.lead==='all'?null:s.lead,w=rangeArgs(s),leadText=lead==null?'All forecast leads':`${leadLabel(lead)} · ${lead} h`;
   $('ts-chart-title').textContent=`${v.label} — ${m.metricType}`;$('ts-chart-subtitle').textContent=`${s.region} · ${leadText} · ${rangeLabel(s)}`;
   const series=s.models.map(model=>({name:model,color:modelColor(model),...chartModelStyle(model),data:data.dailyValueSeries({...w,model,metric:s.metric,region:s.region,lead}).map(d=>({x:d.date.getTime(),y:d.value,label:dateFull(d.date.getTime())}))}));
-  renderLineChart($('ts-chart'),series,{formatX:dateShort,formatY:(y,step)=>cleanAxisTickLabel(y,step),formatTooltipY:y=>metricFmt(s.metric,y),ySuffix:'',zeroLine:m.direction==='target',tooltipTitle:m.short,emptyMessage:'N/A — choose models or select a metric with available verification data.',interactive:true,onSeriesHover:name=>highlightModelChip('ts-model-chips',name),maxSegmentGap:1.5*86400000,xAxisLabel:'Date',yAxisLabel:metricAxisLabel(s.metric),exportName:`time-series_${s.metric}_${s.region}_${s.lead}.png`,exportTitle:`Performance Time Series — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${leadText} · ${rangeLabel(s)}`});
-  $('ts-verification-note').textContent=`${metricDirectionText(m)} ${lead==null?'Each date aggregates all available forecast leads.':'Each point uses the selected forecast lead.'}`;
+  const selectedRange=data.resolveWindow(w);
+  const totalDays=Math.max(0,Math.round((selectedRange.end-selectedRange.start)/86400000)+1);
+  const periodSummary=buildTimeSeriesPeriodSummary(series,{
+    aggregate:values=>data.aggregateMetricValues(values,s.metric),
+    format:value=>metricFmt(s.metric,value),
+    aggregation:m.aggregation,totalDays
+  });
+  const safeLabel=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  $('ts-period-inset').innerHTML=`<div class="ts-inset-heading"><strong>Period score</strong><span>${safeLabel(rangeLabel(s))}</span></div><div class="ts-inset-method">${safeLabel(periodSummary.method)}</div><div class="ts-inset-columns"><span>Model</span><span>Score</span><span>Days</span></div>${periodSummary.rows.length?periodSummary.rows.map(r=>`<div class="ts-inset-row" title="${safeLabel(`${r.name}: ${r.formatted}, ${r.days} valid day(s) of ${totalDays} selected`)}"><span class="ts-inset-model"><i class="ts-inset-color" style="--model-color:${safeLabel(r.color)}"></i>${safeLabel(r.name)}</span><strong>${safeLabel(r.formatted)}</strong><span class="ts-inset-days">${r.days}/${totalDays}</span></div>`).join(''):'<div class="ts-inset-empty">Select models to see their period scores.</div>'}<div class="ts-inset-foot">Uses the plotted daily values. Missing dates are excluded; coverage can differ by model.${lead==null?' Daily values first combine available leads.':''}</div>`;
+  renderLineChart($('ts-chart'),series,{periodSummary,referenceX:s.referenceDate?Date.parse(`${s.referenceDate}T00:00:00Z`):null,referenceLabel:s.referenceDate?`Case ${s.referenceDate}`:'',formatX:dateShort,formatY:(y,step)=>cleanAxisTickLabel(y,step),formatTooltipY:y=>metricFmt(s.metric,y),ySuffix:'',zeroLine:m.direction==='target',tooltipTitle:m.short,emptyMessage:'N/A — choose models or select a metric with available verification data.',interactive:true,onSeriesHover:name=>highlightModelChip('ts-model-chips',name),maxSegmentGap:1.5*86400000,xAxisLabel:'Date',yAxisLabel:metricAxisLabel(s.metric),exportName:`time-series_${s.metric}_${s.region}_${s.lead}.png`,exportTitle:`Performance Time Series — ${v.label} ${m.metricType}`,exportSubtitle:`${s.region} · ${leadText} · ${rangeLabel(s)}`});
+  $('ts-verification-note').textContent=`${metricDirectionText(m)} ${lead==null?'Each date aggregates all available forecast leads.':'Each point uses the selected forecast lead.'} The period inset summarizes those plotted daily scores using metric-specific aggregation; model coverage may differ.`;
 }
 
-function renderCurrent(){if(state.route==='home')renderHome();else if(state.route==='skill')renderSkill();else if(state.route==='scorecard')renderScorecardPage();else if(state.route==='timeseries')renderTimeSeries()}
+// Build table exports from currently rendered DOM values (rather than
+// independently recalculating verification scores). This guarantees each CSV
+// and PNG reflects the active region, baseline, date range and N/A cells.
+function exportLeadDescription(lead){return lead==='all'?'All forecast leads':`D${Number(lead)/24} (F${lead})`}
+function tableExportSpecification(key){
+  const home=state.home,skill=state.skill,score=state.score;
+  const skillMetric=CONFIG.metrics[skill.metric];
+  const section=(title,table,subtitle='')=>({title,table,subtitle});
+  const filename=key.replace(/[^a-z0-9-]/gi,'-')+'.png';
+  if(key==='home-scorecard')return {filename,title:'Home Verification Scorecard',
+    subtitle:`${home.region} selected · ${rangeLabel(home)} · ${exportLeadDescription(home.forecastLead)} · baseline: ${home.baseline}`,
+    notes:$('home-scorecard-region-note').textContent+' Blue indicates better performance versus baseline; red indicates worse. N/A means no matched data.',
+    sections:[section('Percent improvement relative to baseline',$('home-scorecard-table'))]};
+  if(key==='skill-equivalent')return {filename,title:'Equivalent Forecast-Hour Table',
+    subtitle:`${skillMetric.label} · ${skill.region} · ${rangeLabel(skill)} · baseline: ${skill.baseline}`,
+    notes:'Values are equivalent lead-time gains in hours: positive blue means longer retained skill; negative red means shorter. N/A and unavailable statuses are not zero.',
+    sections:[section('Equivalent lead-time gain by model and baseline day',$('skill-effective-table'))]};
+  if(key==='scorecard-all'||key.startsWith('scorecard-group-')){
+    const groupIndex=key.startsWith('scorecard-group-')?Number(key.slice('scorecard-group-'.length)):null;
+    const panels=[...document.querySelectorAll('#scorecard-sections .scorecard-panel')];
+    const selectedPanels=groupIndex===null?panels:panels.slice(groupIndex,groupIndex+1);
+    const sections=selectedPanels.flatMap(panel=>[...panel.querySelectorAll('.metric-block')].map(block=>section(
+      `${panel.querySelector('h3')?.textContent||'Scorecard'} — ${block.querySelector('.metric-block-head strong')?.textContent||'Metric'}`,
+      block.querySelector('table'),block.querySelector('.metric-region-note')?.textContent||''
+    )));
+    return {filename,title:groupIndex===null?'Verification Scorecard':`Verification Scorecard — ${selectedPanels[0]?.querySelector('h3')?.textContent||'Category'}`,
+      subtitle:`${score.region} selected · ${rangeLabel(score)} · baseline: ${score.baseline} · ${score.comparisonMode==='same_source'?'Strict source matching':'Standard matched dates and leads'}`,
+      notes:'Entries are percentage improvement versus baseline; positive/blue is better and negative/red is worse. N/A means no comparable data. Each metric specifies the actual verification region used; cross-region scores are not directly equivalent.',
+      sections};
+  }
+  throw new Error('Unknown table export.');
+}
+function initTableExports(){
+  document.addEventListener('click',event=>{
+    const button=event.target.closest('button[data-export-table][data-export-format]');
+    if(!button)return;
+    try{
+      const spec=tableExportSpecification(button.dataset.exportTable);
+      if(button.dataset.exportFormat==='png')exportTablesPng(spec);
+      else exportTablesCsv(spec);
+    }catch(error){console.error('Table export failed',error);window.alert('Unable to export this table: '+error.message)}
+  });
+}
+
+function renderCurrent(){if(state.route==='home')renderHome();else if(state.route==='skill')renderSkill();else if(state.route==='scorecard')renderScorecardPage();else if(state.route==='timeseries')renderTimeSeries();else if(state.route==='explorer')renderExplorer()}
 
 async function start(){
-  initTheme();initNavigation();initHomeControls();initDetailControls();
+  initTheme();initNavigation();initHomeControls();initDetailControls();initExplorerControls();initTableExports();
   $('skill-significance-toggle').addEventListener('change',event=>{showSkillSignificance=event.target.checked;renderSkill()});
   try{await data.load(CONFIG.defaultRegion);
     if(CONFIG.defaultRegion!=='CONUS'){try{await data.ensureRegion('CONUS')}catch(error){console.warn('CONUS data unavailable',error)}}
-    syncDateLimits();updateDataStatus();const initial=location.hash.replace('#/','');setRoute(['home','skill','scorecard','timeseries','methodology','changelog'].includes(initial)?initial:'home',!initial)}
+    syncDateLimits();updateDataStatus();const initial=location.hash.replace('#/','');setRoute(['home','skill','explorer','scorecard','timeseries','methodology','changelog'].includes(initial)?initial:'home',!initial)}
   catch(err){console.error(err);document.querySelector('.status-dot').className='status-dot error';$('data-status').textContent='Data load failed';document.querySelector('.main-content').innerHTML=`<section class="card"><div class="empty">Unable to load the EVS data files. Check deployment and use HTTP(S).</div></section>`}
 }
 start();

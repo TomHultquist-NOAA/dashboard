@@ -154,13 +154,91 @@ function canvasMarker(ctx,x,y,s,scale=1,edge=null){
   ctx.restore();
 }
 
-function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY=false,filename,allX,exportTitle='',exportSubtitle='',maxSegmentGap=null,forceZeroTick=false,significanceBoxes=[]}){
+// PNG-only legend: use the same ordered model series, colors, line weights and
+// marker shapes as the actual plot. Omit selected models without finite plotted
+// values, and wrap as needed without shrinking or clipping the original chart.
+function pngLegendRows(ctx,series,availableWidth){
+  const font='600 12px Inter, Segoe UI, Arial, sans-serif';
+  ctx.font=font;
+  const lineLength=24,textGap=9,itemGap=18;
+  const items=series.filter(s=>Array.isArray(s.data)&&s.data.some(d=>Number.isFinite(d.x)&&Number.isFinite(d.y)))
+    .map(s=>({series:s,width:lineLength+textGap+ctx.measureText(String(s.name)).width}));
+  const rows=[];let row=[],used=0;
+  for(const item of items){
+    const next=used+(row.length?itemGap:0)+item.width;
+    if(row.length&&next>availableWidth){rows.push(row);row=[];used=0}
+    if(row.length)used+=itemGap;
+    row.push(item);used+=item.width;
+  }
+  if(row.length)rows.push(row);
+  return {rows,font,lineLength,textGap,itemGap};
+}
+
+function drawPngLegend(ctx,legend,colors,p,width,height,headerH){
+  if(!legend.rows.length)return;
+  const top=headerH+height;
+  ctx.save();
+  ctx.strokeStyle=colors.axis;ctx.lineWidth=0.8;
+  ctx.beginPath();ctx.moveTo(p.l,top+8);ctx.lineTo(width-p.r,top+8);ctx.stroke();
+  ctx.font=legend.font;ctx.textAlign='left';ctx.textBaseline='middle';
+  for(let ri=0;ri<legend.rows.length;ri++){
+    const row=legend.rows[ri];
+    const rowWidth=row.reduce((sum,item)=>sum+item.width,0)+legend.itemGap*(row.length-1);
+    let x=p.l+Math.max(0,(width-p.l-p.r-rowWidth)/2);
+    const y=top+29+ri*25;
+    for(const {series:s,width:itemWidth} of row){
+      const edge=chartContrastEdge(s.color),lineWidth=Number(s.lineWidth)||1.5;
+      ctx.lineCap='round';
+      if(edge){ctx.strokeStyle=edge.color;ctx.lineWidth=lineWidth+edge.extraWidth;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+legend.lineLength,y);ctx.stroke()}
+      ctx.strokeStyle=s.color;ctx.lineWidth=lineWidth;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+legend.lineLength,y);ctx.stroke();
+      canvasMarker(ctx,x+legend.lineLength/2,y,s,1,edge);
+      ctx.fillStyle=colors.legendText;ctx.font=legend.font;ctx.textAlign='left';ctx.textBaseline='middle';
+      ctx.fillText(String(s.name),x+legend.lineLength+legend.textGap,y);
+      x+=itemWidth+legend.itemGap;
+    }
+  }
+  ctx.restore();
+}
+
+function drawPngPeriodSummary(ctx,summary,x,y,w,h,colors){
+  ctx.save();
+  ctx.fillStyle=colors.insetBg;ctx.strokeStyle=colors.insetLine;ctx.lineWidth=1;
+  ctx.beginPath();ctx.roundRect?.(x,y,w,h,10);
+  // roundRect is not available in every older Canvas runtime. Use a plain
+  // rectangle fallback; neither path changes the displayed data.
+  if(typeof ctx.roundRect==='function'){ctx.fill();ctx.stroke()}else{ctx.fillRect(x,y,w,h);ctx.strokeRect(x,y,w,h)}
+  ctx.font='700 15px Inter, Segoe UI, Arial, sans-serif';ctx.fillStyle=colors.legendText;
+  ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText('Period score',x+12,y+21);
+  ctx.font='10px Inter, Segoe UI, Arial, sans-serif';ctx.fillStyle=colors.axisText;
+  ctx.fillText(summary.method,x+12,y+42,w-24);
+  ctx.strokeStyle=colors.insetLine;ctx.beginPath();ctx.moveTo(x+11,y+54);ctx.lineTo(x+w-11,y+54);ctx.stroke();
+  ctx.font='700 10px Inter, Segoe UI, Arial, sans-serif';ctx.fillStyle=colors.axisText;
+  ctx.fillText('MODEL',x+12,y+69);ctx.textAlign='right';ctx.fillText('SCORE',x+w-52,y+69);ctx.fillText('DAYS',x+w-12,y+69);
+  for(let i=0;i<summary.rows.length;i++){
+    const row=summary.rows[i],cy=y+90+i*31;
+    if(cy>y+h-28)break;
+    ctx.fillStyle=row.color;ctx.beginPath();ctx.arc(x+17,cy,4,0,Math.PI*2);ctx.fill();
+    if(String(row.color).toLowerCase()==='#000000'){ctx.strokeStyle=colors.axisText;ctx.lineWidth=1;ctx.stroke()}
+    ctx.fillStyle=colors.legendText;ctx.font='700 12px Inter, Segoe UI, Arial, sans-serif';ctx.textAlign='left';ctx.fillText(row.name,x+27,cy);
+    ctx.textAlign='right';ctx.font='700 11px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(row.formatted,x+w-52,cy);
+    ctx.fillStyle=colors.axisText;ctx.font='10px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(`${row.days}/${summary.totalDays}`,x+w-12,cy);
+  }
+  ctx.fillStyle=colors.axisText;ctx.font='10px Inter, Segoe UI, Arial, sans-serif';ctx.textAlign='left';
+  ctx.fillText('Scores use all selected dates;',x+12,y+h-22);
+  ctx.fillText('valid-day counts can differ.',x+12,y+h-9);
+  ctx.restore();
+}
+
+function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY=false,filename,allX,exportTitle='',exportSubtitle='',maxSegmentGap=null,forceZeroTick=false,significanceBoxes=[],referenceX=null,referenceLabel='',periodSummary=null}){
   const scale=2;
   const headerH=exportTitle?58:0;
+  const periodSideWidth=periodSummary?230:0;
   const canvas=document.createElement('canvas');
-  canvas.width=width*scale;canvas.height=(height+headerH)*scale;
   const ctx=canvas.getContext('2d');
   if(!ctx)throw new Error('Canvas is unavailable');
+  const legend=pngLegendRows(ctx,series,width-p.l-p.r);
+  const legendH=legend.rows.length?31+25*legend.rows.length:0;
+  canvas.width=(width+periodSideWidth)*scale;canvas.height=(height+headerH+legendH)*scale;
   ctx.scale(scale,scale);
 
   const colors={
@@ -170,7 +248,7 @@ function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTic
   };
   const sx=x=>p.l+(x-view.x0)/(view.x1-view.x0)*(width-p.l-p.r);
   const sy=y=>reverseY?p.t+(y-view.y0)/(view.y1-view.y0)*(height-p.t-p.b):height-p.b-(y-view.y0)/(view.y1-view.y0)*(height-p.t-p.b);
-  ctx.fillStyle=colors.bg;ctx.fillRect(0,0,width,height+headerH);
+  ctx.fillStyle=colors.bg;ctx.fillRect(0,0,width+periodSideWidth,height+headerH+legendH);
   if(exportTitle){
     ctx.fillStyle=colors.legendText;ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.font='700 17px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(exportTitle,p.l,24);
     if(exportSubtitle){ctx.fillStyle=colors.axisText;ctx.font='11px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(exportSubtitle,p.l,43)}
@@ -190,12 +268,12 @@ function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTic
     ctx.fillStyle=colors.axisText;ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillText(String(formatX(x)),px,height-(xAxisLabel?30:17));ctx.textBaseline='middle';
   }
   // EVS-style pointwise confidence intervals, displayed as model-specific
-  // outlined bars centered on zero, behind the paired-difference traces.
+  // outlined bars centered on zero, behind the existing percentage-skill traces.
   if(significanceBoxes.length){
     ctx.save();ctx.beginPath();ctx.rect(p.l,p.t,width-p.l-p.r,height-p.t-p.b);ctx.clip();
     for(const b of boxesWithinView(significanceBoxes,view)){
       const hw=(b.width??.68)/2,x0=sx(b.x-hw),x1=sx(b.x+hw),yt=sy(b.halfHeight),yb=sy(-b.halfHeight);
-      ctx.strokeStyle=b.color||cssVar('--chart-significance-line','rgba(171,187,208,.65)');ctx.lineWidth=1.4;
+      ctx.strokeStyle=b.color||cssVar('--chart-significance-line','rgba(171,187,208,.65)');ctx.lineWidth=0.85;
       ctx.strokeRect(x0,Math.min(yt,yb),x1-x0,Math.max(1,Math.abs(yb-yt)));
     }
     ctx.restore();
@@ -203,6 +281,12 @@ function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTic
   if(view.y0<=0&&view.y1>=0){ctx.strokeStyle=colors.zero;ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(p.l,sy(0));ctx.lineTo(width-p.r,sy(0));ctx.stroke();ctx.setLineDash([])}
   ctx.strokeStyle=colors.axis;ctx.beginPath();ctx.moveTo(p.l,p.t);ctx.lineTo(p.l,height-p.b);ctx.lineTo(width-p.r,height-p.b);ctx.stroke();
 
+  if(Number.isFinite(referenceX)&&referenceX>=view.x0&&referenceX<=view.x1){
+    const x=sx(referenceX);ctx.save();ctx.strokeStyle='#f1bd57';ctx.setLineDash([4,4]);ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(x,p.t);ctx.lineTo(x,height-p.b);ctx.stroke();ctx.setLineDash([]);
+    ctx.textAlign='center';ctx.font='700 10px Inter, Segoe UI, Arial, sans-serif';ctx.fillStyle='#f1bd57';
+    ctx.fillText(referenceLabel||'Selected date',x,p.t+11);ctx.restore();
+  }
   ctx.save();
   ctx.beginPath();ctx.rect(p.l,p.t,width-p.l-p.r,height-p.t-p.b);ctx.clip();
   for(const s of series){
@@ -221,6 +305,8 @@ function exportCanvasPng({series,view,original,width,height,p,formatX,yAxis,xTic
   if(xAxisLabel){ctx.fillStyle=colors.axisText;ctx.font='700 11px Inter, Segoe UI, Arial, sans-serif';ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillText(xAxisLabel,(p.l+width-p.r)/2,height-6)}
   if(yAxisLabel){ctx.save();ctx.fillStyle=colors.axisText;ctx.font='700 11px Inter, Segoe UI, Arial, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.translate(17,(p.t+height-p.b)/2);ctx.rotate(-Math.PI/2);ctx.fillText(yAxisLabel,0,0);ctx.restore()}
   if(exportTitle)ctx.restore();
+  drawPngLegend(ctx,legend,colors,p,width,height,headerH);
+  if(periodSummary)drawPngPeriodSummary(ctx,periodSummary,width+9,headerH+16,periodSideWidth-19,Math.min(height-28,365),colors);
   createDownload(canvas.toDataURL('image/png'),filename);
 }
 
@@ -228,7 +314,7 @@ export function renderLineChart(container,series,{
   formatX=x=>String(x),formatY=null,ySuffix='%',zeroLine=true,
   tooltipTitle=null,formatTooltipY=null,formatTooltipExtra=null,tooltipExtraLabel='Value',tooltipSort=null,emptyMessage='No data for this selection.',
   interactive=false,exportName='omd-chart.png',interactionHint='Drag a box to zoom · wheel to zoom horizontally · Shift+drag to pan',onSeriesHover=null,showLegend=false,
-  xDomain=null,xTickValues=null,yDomain=null,yTickValues=null,reverseY=false,xAxisLabel='',yAxisLabel='',exportTitle='',exportSubtitle='',maxSegmentGap=null,forceZeroTick=false,significanceBoxes=[]
+  xDomain=null,xTickValues=null,yDomain=null,yTickValues=null,reverseY=false,xAxisLabel='',yAxisLabel='',exportTitle='',exportSubtitle='',maxSegmentGap=null,forceZeroTick=false,significanceBoxes=[],referenceX=null,referenceLabel='',periodSummary=null
 }={}){
   if(container._chartCleanup){container._chartCleanup();container._chartCleanup=null}
   container._chartSetHighlight=null;
@@ -279,8 +365,10 @@ export function renderLineChart(container,series,{
     const boxes=boxesWithinView(significanceBoxes,view).map(b=>{
       const hw=(b.width??.68)/2,x0=sx(b.x-hw),x1=sx(b.x+hw),top=sy(b.halfHeight),bottom=sy(-b.halfHeight);
       const stroke=b.color||'var(--chart-significance-line)';
-      return `<rect class="significance-box" data-model="${esc(b.model||'')}" x="${x0}" y="${Math.min(top,bottom)}" width="${Math.max(0,x1-x0)}" height="${Math.max(1,Math.abs(bottom-top))}" fill="none" stroke="${stroke}" stroke-width="1.4"><title>${esc(b.model||'Model')} · EVS-style 95% CI around zero: ±${b.halfHeight.toPrecision(3)} · Paired mean difference: ${Number(b.meanDifference).toPrecision(4)} · n=${b.n} · ${b.significant?'Outside':'Inside'} CI</title></rect>`;
+      return `<rect class="significance-box" data-model="${esc(b.model||'')}" x="${x0}" y="${Math.min(top,bottom)}" width="${Math.max(0,x1-x0)}" height="${Math.max(1,Math.abs(bottom-top))}" fill="none" stroke="${stroke}" stroke-width="0.85"><title>${esc(b.model||'Model')} · EVS-style 95% zero-centered CI: ±${Number(b.rawHalfHeight).toPrecision(4)}${esc(b.rawUnit||'')} (visualized as ±${b.halfHeight.toPrecision(3)}% of matched baseline scale) · Raw paired model-minus-baseline mean: ${Number(b.rawMean).toPrecision(4)}${esc(b.rawUnit||'')} · n=${b.n} · ${b.significant?'Outside':'Inside'} CI</title></rect>`;
     }).join('');
+    const referenceMark=Number.isFinite(referenceX)&&referenceX>=view.x0&&referenceX<=view.x1?
+      `<g pointer-events="none"><line x1="${sx(referenceX)}" y1="${p.t}" x2="${sx(referenceX)}" y2="${height-p.b}" stroke="#f1bd57" stroke-width="2" stroke-dasharray="4 4"/><text x="${sx(referenceX)}" y="${p.t+13}" text-anchor="middle" fill="#f1bd57" font-size="10" font-weight="700">${esc(referenceLabel||'Selected date')}</text></g>`:'';
     const zero=zeroLine&&view.y0<=0&&view.y1>=0?`<line x1="${p.l}" y1="${sy(0)}" x2="${width-p.r}" y2="${sy(0)}" stroke="var(--chart-zero)" stroke-dasharray="5 5"/>`:'';
     const paths=series.map(s=>{
       const visiblePts=s.data.filter(d=>Number.isFinite(d.x)&&Number.isFinite(d.y));
@@ -297,7 +385,7 @@ export function renderLineChart(container,series,{
       if(!paths)return'';
       return `<g class="chart-series" data-series="${esc(s.name)}" clip-path="url(#${clipId})">${paths}${markers}</g>`;
     }).join('');
-    container.innerHTML=`${interactive?`<div class="chart-controls-row"><div class="chart-interaction-hint">${esc(interactionHint)}</div><div class="chart-tools" role="toolbar" aria-label="Chart controls"><button class="chart-tool zoom-in" title="Zoom in horizontally" aria-label="Zoom in horizontally">${icon('plus')}</button><button class="chart-tool zoom-out" title="Zoom out horizontally" aria-label="Zoom out horizontally">${icon('minus')}</button><button class="chart-tool chart-reset" title="Reset chart view" aria-label="Reset chart view">${icon('reset')}</button><button class="chart-tool chart-save" title="Download PNG" aria-label="Download PNG">${icon('save')}</button></div></div>`:''}<svg class="data-chart-svg" viewBox="0 0 ${width} ${height}" role="img"><defs><clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${width-p.l-p.r}" height="${height-p.t-p.b}"/></clipPath></defs><rect x="0" y="0" width="${width}" height="${height}" fill="var(--chart-bg)" stroke="none"/>${grid}<g clip-path="url(#${clipId})">${boxes}</g>${zero}<line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${height-p.b}" stroke="var(--chart-axis)"/><line x1="${p.l}" y1="${height-p.b}" x2="${width-p.r}" y2="${height-p.b}" stroke="var(--chart-axis)"/>${paths}${axisTitle}${yTitle}<g class="chart-hover-layer" pointer-events="none" style="display:none" clip-path="url(#${clipId})"><line class="chart-hover-line" x1="0" y1="${p.t}" x2="0" y2="${height-p.b}" stroke="var(--chart-hover-line)" stroke-width="1.2" stroke-dasharray="4 4"/><g class="chart-hover-points"></g></g><rect class="chart-zoom-box" x="0" y="0" width="0" height="0" rx="2" fill="var(--chart-selection-fill)" stroke="var(--chart-selection-stroke)" stroke-width="1.2" pointer-events="none" style="display:none" clip-path="url(#${clipId})"/><rect class="chart-hover-capture" x="${p.l}" y="${p.t}" width="${width-p.l-p.r}" height="${height-p.t-p.b}" fill="transparent" stroke="none" pointer-events="all" style="touch-action:pan-y"/></svg><div class="chart-tooltip"></div>`;
+    container.innerHTML=`${interactive?`<div class="chart-controls-row"><div class="chart-interaction-hint">${esc(interactionHint)}</div><div class="chart-tools" role="toolbar" aria-label="Chart controls"><button class="chart-tool zoom-in" title="Zoom in horizontally" aria-label="Zoom in horizontally">${icon('plus')}</button><button class="chart-tool zoom-out" title="Zoom out horizontally" aria-label="Zoom out horizontally">${icon('minus')}</button><button class="chart-tool chart-reset" title="Reset chart view" aria-label="Reset chart view">${icon('reset')}</button><button class="chart-tool chart-save" title="Download PNG" aria-label="Download PNG">${icon('save')}</button></div></div>`:''}<svg class="data-chart-svg" viewBox="0 0 ${width} ${height}" role="img"><defs><clipPath id="${clipId}"><rect x="${p.l}" y="${p.t}" width="${width-p.l-p.r}" height="${height-p.t-p.b}"/></clipPath></defs><rect x="0" y="0" width="${width}" height="${height}" fill="var(--chart-bg)" stroke="none"/>${grid}<g clip-path="url(#${clipId})">${boxes}</g>${zero}<line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${height-p.b}" stroke="var(--chart-axis)"/><line x1="${p.l}" y1="${height-p.b}" x2="${width-p.r}" y2="${height-p.b}" stroke="var(--chart-axis)"/>${referenceMark}${paths}${axisTitle}${yTitle}<g class="chart-hover-layer" pointer-events="none" style="display:none" clip-path="url(#${clipId})"><line class="chart-hover-line" x1="0" y1="${p.t}" x2="0" y2="${height-p.b}" stroke="var(--chart-hover-line)" stroke-width="1.2" stroke-dasharray="4 4"/><g class="chart-hover-points"></g></g><rect class="chart-zoom-box" x="0" y="0" width="0" height="0" rx="2" fill="var(--chart-selection-fill)" stroke="var(--chart-selection-stroke)" stroke-width="1.2" pointer-events="none" style="display:none" clip-path="url(#${clipId})"/><rect class="chart-hover-capture" x="${p.l}" y="${p.t}" width="${width-p.l-p.r}" height="${height-p.t-p.b}" fill="transparent" stroke="none" pointer-events="all" style="touch-action:pan-y"/></svg><div class="chart-tooltip"></div>`;
 
     const svg=container.querySelector('.data-chart-svg'),capture=container.querySelector('.chart-hover-capture'),hoverLayer=container.querySelector('.chart-hover-layer'),hoverLine=container.querySelector('.chart-hover-line'),hoverPoints=container.querySelector('.chart-hover-points'),tooltip=container.querySelector('.chart-tooltip');
     const setHighlight=name=>{container.querySelectorAll('.significance-box[data-model]').forEach(box=>{box.style.opacity=!name||box.dataset.model===name?'1':'.18'});
@@ -322,7 +410,7 @@ export function renderLineChart(container,series,{
       capture.addEventListener('pointerdown',event=>{if(event.pointerType==='touch'||event.button!==0)return;const q=clientToSvg(event);dragMode=event.shiftKey?'pan':'zoom';dragStart={clientX:event.clientX,clientY:event.clientY,px:q.px,py:q.py,view:{...view}};dragCurrent={...q};container.classList.add(dragMode==='pan'?'panning':'zoom-selecting');hide();event.preventDefault()});
       capture.addEventListener('wheel',event=>{event.preventDefault();const d=pointerToData(event);zoomX(event.deltaY<0?.82:1.22,d.x)},{passive:false});
       container.querySelector('.zoom-in').onclick=()=>zoomX(.78);container.querySelector('.zoom-out').onclick=()=>zoomX(1.28);container.querySelector('.chart-reset').onclick=reset;
-      container.querySelector('.chart-save').onclick=e=>{const btn=e.currentTarget;btn.disabled=true;try{exportCanvasPng({series,view:{...view},original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY,filename:exportName,allX,exportTitle,exportSubtitle,maxSegmentGap,forceZeroTick,significanceBoxes})}catch(err){console.error(err);alert('Unable to save this chart image.')}finally{btn.disabled=false}};
+      container.querySelector('.chart-save').onclick=e=>{const btn=e.currentTarget;btn.disabled=true;try{exportCanvasPng({series,view:{...view},original,width,height,p,formatX,yAxis,xTickValues,yTickValues,xAxisLabel,yAxisLabel,reverseY,filename:exportName,allX,exportTitle,exportSubtitle,maxSegmentGap,forceZeroTick,significanceBoxes,referenceX,referenceLabel,periodSummary})}catch(err){console.error(err);alert('Unable to save this chart image.')}finally{btn.disabled=false}};
     }
   }
 

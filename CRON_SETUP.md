@@ -1,6 +1,6 @@
 # Scheduled EVS data updates
 
-**OMD Model Performance Dashboard — version 1.1.8**
+**OMD Model Performance Dashboard — version 1.1.10**
 
 This guide covers automated retrieval of EVS STAT files, validation of normalized CSV outputs, and publication to a static dashboard. The browser reads published `data/regions/*.csv`; it does not retrieve STAT files directly.
 
@@ -100,7 +100,7 @@ Cached successful STAT downloads are reused. For revised upstream files, the imp
 
 ## Additional source products
 
-**Version 1.1.8 frontend/statistical-display update:** The new Forecast Hour Mean die-off curve and the optional EVS-style per-model, per-lead 95% confidence-interval comparison both use existing normalized daily CSV records. No additional ingestion products, source files, periodic jobs, or cron configuration changes are needed. The significance method computes its paired daily values in the browser; it does not alter CSV publication.
+**Version 1.1.13 frontend analysis update:** Forecast Hour Mean, EVS-style significance, the new common-sample All-lead Home ranking, and effective lead-time equivalents all use the existing normalized daily CSV records. No additional ingest products, input files, periodic jobs, or cron configuration changes are required. Independent available-sample means, lead coverage, and effective-hour interpolation are computed in the browser, not stored in new columns; no cron or ingestion changes are needed. Skill vs Lead uses fixed Standard matched-date comparisons for its percentage skill and EVS significance, while the separate Scorecard retains its Standard/Strict control.
 
 The importer requests the three original products together with the added height, pressure, temperature, vector-wind, and 24-hour precipitation products. No cron schedule changes are required when the updated importer is deployed. The number of source requests is correspondingly larger; missing model/date/metric files return N/A without blocking a healthy publication. Previously cached successful downloads are reused, and older 404s use a temporary negative cache to reduce repeated requests.
 

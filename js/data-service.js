@@ -1,5 +1,5 @@
-import { CONFIG, metricKeys } from './config.js?v=1.1.8';
-import { parseCSV } from './csv.js?v=1.1.8';
+import { CONFIG, metricKeys } from './config.js?v=1.3.2';
+import { parseCSV } from './csv.js?v=1.3.2';
 
 const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:NaN;
 const rms=a=>a.length?Math.sqrt(a.reduce((s,v)=>s+v*v,0)/a.length):NaN;
@@ -132,6 +132,46 @@ export class DataService{
       return {model,records:selected.length,dates:new Set(selected.map(row=>dateKey(row.valid_date))).size,
         maxLead,sources,matchedPairs:pairs.length,temporalPairs,differingSources,unknownSources};
     });
+  }
+  // Visible coverage for the Home ranking's selected metric, region and dates.
+  // Counts refer to actual archived records (not model configuration limits).
+  modelLeadAvailability({models=Object.keys(CONFIG.modelMeta),metric,region,lead=null,...window}){
+    const rows=this.windowRows({...window,region,models,metrics:[metric],
+      leads:lead==null?CONFIG.leads:[lead]});
+    const grouped=new Map(models.map(model=>[model,[]]));
+    for(const row of rows)grouped.get(row.model)?.push(row);
+    return models.map(model=>{
+      const available=grouped.get(model)||[];
+      return {model,records:available.length,
+        dates:new Set(available.map(row=>dateKey(row.valid_date))).size,
+        leads:[...new Set(available.map(row=>row.forecast_hour))].sort((a,b)=>a-b)};
+    });
+  }
+  // FAIR 'All' model ranking: take the full intersection of (verification UTC
+  // date, forecast hour) keys across the enabled models. This guards against
+  // both unequal maximum lead and missing valid dates at individual leads.
+  // A single missing selected model intentionally yields no ranking; users can
+  // toggle models to discover the support of their comparison.
+  comparableAllLeadRows({models,metric,region,...window}){
+    const byModel=new Map(models.map(model=>[model,[]]));
+    if(models.length<2)return {byModel,keys:[],leads:[],dates:[]};
+    const rows=this.windowRows({...window,region,models,metrics:[metric],leads:CONFIG.leads});
+    const grouped=new Map();
+    for(const row of rows){
+      const key=`${row.valid_date.getTime()}|${row.forecast_hour}`;
+      if(!grouped.has(key))grouped.set(key,new Map());
+      // One daily normalized score per model/date/forecast hour is expected.
+      // If duplicates are present, use the latest entry consistently.
+      grouped.get(key).set(row.model,row);
+    }
+    const keys=[],leadSet=new Set(),dateSet=new Set();
+    for(const [key,values] of grouped){
+      if(!models.every(model=>values.has(model)))continue;
+      keys.push(key);
+      const first=values.get(models[0]);leadSet.add(first.forecast_hour);dateSet.add(first.valid_date.getTime());
+      for(const model of models)byModel.get(model).push(values.get(model));
+    }
+    return {byModel,keys,leads:[...leadSet].sort((a,b)=>a-b),dates:[...dateSet].sort((a,b)=>a-b)};
   }
   compositeSkill({model,baseline,region,metrics,...window}){const vals=(metrics||metricKeys()).map(metric=>this.skillFor({...window,model,baseline,metric,region})).filter(Number.isFinite);return mean(vals)}
   verificationMetadata({metric}){const m=CONFIG.metrics[metric],v=m?CONFIG.variables[m.variable]:null;return m&&v?{obs_source:v.obsSource,variable:v.label,level:v.level,metric_type:m.metricType}:null}
